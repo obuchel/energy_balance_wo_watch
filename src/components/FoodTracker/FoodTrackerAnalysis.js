@@ -6,13 +6,50 @@ import './FoodTrackerAnalysis.css';
 import { 
   calculateFoodEfficiency
 } from './enhanced-efficiency-functions';
-
+const isD3Available = () => {
+  return d3 && typeof d3.select === 'function' && typeof d3.scaleLinear === 'function';
+};
 // FIXED: Utility functions to handle dates without timezone issues
 const parseDate = (dateString) => {
   const parts = dateString.split('-');
   return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
 };
-
+const useD3Ready = () => {
+  const [d3Ready, setD3Ready] = useState(false);
+  
+  useEffect(() => {
+    const checkD3 = () => {
+      if (isD3Available()) {
+        setD3Ready(true);
+        return true;
+      }
+      return false;
+    };
+    
+    // Check immediately
+    if (checkD3()) return;
+    
+    // If not ready, check every 100ms for up to 5 seconds
+    const interval = setInterval(() => {
+      if (checkD3()) {
+        clearInterval(interval);
+      }
+    }, 100);
+    
+    // Cleanup after 5 seconds
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      console.warn('D3 failed to load within 5 seconds');
+    }, 5000);
+    
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, []);
+  
+  return d3Ready;
+};
 const formatDateForComparison = (date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -126,365 +163,394 @@ if (finalUnit !== rdaInfo.unit) {
   return completeIntakeData;
 }
 
-function MacronutrientChart({ userData, userIntake = {} }) {
-const chartRef = useRef(null);
-const [personalizedRDA, setPersonalizedRDA] = useState(null);
+// Replace your ENTIRE MacronutrientChart function with this complete version:
 
-const calculatePersonalizedRDA = useCallback((userData) => {
-  const calculateBMI = (weight, height) => {
-    if (!weight || !height) return null;
-    return weight / Math.pow(height / 100, 2);
-  };
-  
-  const calculateTDEE = (userData) => {
-    const { age, gender, weight, height, activity_level } = userData;
-    
-    if (!age || !weight || !height) {
-      return 2000;
-    }
-    
-    let bmr;
-    if (gender === 'female') {
-      bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161;
-    } else {
-      bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
-    }
-    
-    const activityFactors = {
-      'sedentary': 1.2,
-      'light': 1.375,
-      'moderate': 1.55,
-      'very': 1.725,
-      'extreme': 1.9
+function MacronutrientChart({ userData, userIntake = {} }) {
+  const chartRef = useRef(null);
+  const [personalizedRDA, setPersonalizedRDA] = useState(null);
+  const d3Ready = useD3Ready(); // This line should already be there
+
+  const calculatePersonalizedRDA = useCallback((userData) => {
+    const calculateBMI = (weight, height) => {
+      if (!weight || !height) return null;
+      return weight / Math.pow(height / 100, 2);
     };
     
-    const activityMultiplier = activityFactors[activity_level] || 1.375;
-    let tdee = bmr * activityMultiplier;
-    
-    if (userData.covid_condition) {
-      tdee *= 1.07;
-    }
-    
-    const bmi = calculateBMI(weight, height);
-    if (bmi) {
-      if (bmi < 18.5) {
-        tdee *= 1.1;
-      } else if (bmi > 30) {
-        tdee *= 0.9;
+    const calculateTDEE = (userData) => {
+      const { age, gender, weight, height, activity_level } = userData;
+      
+      if (!age || !weight || !height) {
+        return 2000;
       }
-    }
+      
+      let bmr;
+      if (gender === 'female') {
+        bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161;
+      } else {
+        bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
+      }
+      
+      const activityFactors = {
+        'sedentary': 1.2,
+        'light': 1.375,
+        'moderate': 1.55,
+        'very': 1.725,
+        'extreme': 1.9
+      };
+      
+      const activityMultiplier = activityFactors[activity_level] || 1.375;
+      let tdee = bmr * activityMultiplier;
+      
+      if (userData.covid_condition) {
+        tdee *= 1.07;
+      }
+      
+      const bmi = calculateBMI(weight, height);
+      if (bmi) {
+        if (bmi < 18.5) {
+          tdee *= 1.1;
+        } else if (bmi > 30) {
+          tdee *= 0.9;
+        }
+      }
+      
+      return Math.round(tdee);
+    };
     
-    return Math.round(tdee);
-  };
-  
-  const calculateMacroDistribution = (totalCalories, userData) => {
-    if (!totalCalories) return null;
+    const calculateMacroDistribution = (totalCalories, userData) => {
+      if (!totalCalories) return null;
+      
+      let proteinPct = 0.25;
+      let carbsPct = 0.45;
+      let fatPct = 0.3;
+      
+      if (userData.covid_condition) {
+        proteinPct = 0.30;
+        carbsPct = 0.40;
+        fatPct = 0.30;
+      }
+      
+      const bmi = calculateBMI(userData.weight, userData.height);
+      if (bmi && bmi < 18.5) {
+        fatPct = 0.35;
+        carbsPct = 0.45;
+        proteinPct = 0.20;
+      }
+      
+      if (bmi && bmi > 30) {
+        proteinPct = 0.35;
+        carbsPct = 0.35;
+        fatPct = 0.30;
+      }
+      
+      if (userData.age > 65) {
+        proteinPct = Math.min(proteinPct + 0.05, 0.40);
+        const remaining = 1.0 - proteinPct;
+        carbsPct = remaining * (carbsPct / (carbsPct + fatPct));
+        fatPct = remaining * (fatPct / (carbsPct + fatPct));
+      }
+      
+      return {
+        protein: proteinPct,
+        carbs: carbsPct,
+        fat: fatPct
+      };
+    };
+
+    const totalCalories = calculateTDEE(userData);
+    const macroDistribution = calculateMacroDistribution(totalCalories, userData);
     
-    let proteinPct = 0.25;
-    let carbsPct = 0.45;
-    let fatPct = 0.3;
+    const protein = (totalCalories * macroDistribution.protein / 4).toFixed(1);
+    const carbs = (totalCalories * macroDistribution.carbs / 4).toFixed(1);
+    const fat = (totalCalories * macroDistribution.fat / 9).toFixed(1);
     
-    if (userData.covid_condition) {
-      proteinPct = 0.30;
-      carbsPct = 0.40;
-      fatPct = 0.30;
-    }
-    
-    const bmi = calculateBMI(userData.weight, userData.height);
-    if (bmi && bmi < 18.5) {
-      fatPct = 0.35;
-      carbsPct = 0.45;
-      proteinPct = 0.20;
-    }
-    
-    if (bmi && bmi > 30) {
-      proteinPct = 0.35;
-      carbsPct = 0.35;
-      fatPct = 0.30;
-    }
-    
-    if (userData.age > 65) {
-      proteinPct = Math.min(proteinPct + 0.05, 0.40);
-      const remaining = 1.0 - proteinPct;
-      carbsPct = remaining * (carbsPct / (carbsPct + fatPct));
-      fatPct = remaining * (fatPct / (carbsPct + fatPct));
-    }
+    const covidNotes = {
+      protein: 'Increased to support immune function and tissue repair',
+      carbs: 'Focus on complex carbs with anti-inflammatory properties',
+      fat: 'Higher proportion of omega-3s recommended to reduce inflammation'
+    };
     
     return {
-      protein: proteinPct,
-      carbs: carbsPct,
-      fat: fatPct
+      protein: { 
+        value: parseFloat(protein),
+        covidNote: userData.covid_condition ? covidNotes.protein : null
+      },
+      carbs: { 
+        value: parseFloat(carbs),
+        covidNote: userData.covid_condition ? covidNotes.carbs : null
+      },
+      fat: { 
+        value: parseFloat(fat),
+        covidNote: userData.covid_condition ? covidNotes.fat : null
+      },
+      calories: {
+        value: totalCalories
+      }
     };
-  };
+  }, []);
 
-  const totalCalories = calculateTDEE(userData);
-  const macroDistribution = calculateMacroDistribution(totalCalories, userData);
-  
-  const protein = (totalCalories * macroDistribution.protein / 4).toFixed(1);
-  const carbs = (totalCalories * macroDistribution.carbs / 4).toFixed(1);
-  const fat = (totalCalories * macroDistribution.fat / 9).toFixed(1);
-  
-  const covidNotes = {
-    protein: 'Increased to support immune function and tissue repair',
-    carbs: 'Focus on complex carbs with anti-inflammatory properties',
-    fat: 'Higher proportion of omega-3s recommended to reduce inflammation'
-  };
-  
-  return {
-    protein: { 
-      value: parseFloat(protein),
-      covidNote: userData.covid_condition ? covidNotes.protein : null
-    },
-    carbs: { 
-      value: parseFloat(carbs),
-      covidNote: userData.covid_condition ? covidNotes.carbs : null
-    },
-    fat: { 
-      value: parseFloat(fat),
-      covidNote: userData.covid_condition ? covidNotes.fat : null
-    },
-    calories: {
-      value: totalCalories
+  useEffect(() => {
+    if (userData) {
+      const rda = calculatePersonalizedRDA(userData);
+      setPersonalizedRDA(rda);
     }
-  };
-}, []);
+  }, [userData, calculatePersonalizedRDA]);
 
-useEffect(() => {
-  if (userData) {
-    const rda = calculatePersonalizedRDA(userData);
-    setPersonalizedRDA(rda);
-  }
-}, [userData, calculatePersonalizedRDA]);
-
-useEffect(() => {
-  if (!chartRef.current || !personalizedRDA || !userIntake) return;
-  
-  d3.select(chartRef.current).selectAll("*").remove();
-  
-  const margin = { top: 40, right: 180, bottom: 60, left: 70 };
-  const width = 700 - margin.left - margin.right;
-  const height = 350 - margin.top - margin.bottom;
-  
-  const svg = d3.select(chartRef.current)
-    .append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-    .append("g")
-    .attr("transform", `translate(${margin.left},${margin.top})`);
+  useEffect(() => {
+    // ADD THIS CHECK
+    if (!d3Ready) {
+      console.log('D3 not ready yet, waiting...');
+      return;
+    }
     
-  const macros = ['protein', 'carbs', 'fat'];
-  const data = [
-    { name: "Current Intake", ...userIntake },
-    { name: "Recommended", 
-      protein: personalizedRDA.protein.value,
-      carbs: personalizedRDA.carbs.value,
-      fat: personalizedRDA.fat.value
+    if (!isD3Available()) {
+      console.error('D3 functions not available');
+      return;
     }
-  ];
-  
-  const colors = {
-    protein: "#22c55e",
-    carbs: "#3b82f6",
-    fat: "#f59e0b"
-  };
-  
-  const x = d3.scaleBand()
-    .domain(data.map(d => d.name))
-    .range([0, width])
-    .padding(0.3);
-  
-  const maxValue = d3.max(data, d => {
-    return d.protein + d.carbs + d.fat;
-  });
-  
-  const y = d3.scaleLinear()
-    .domain([0, maxValue * 1.1])
-    .range([height, 0]);
-  
-  svg.append("g")
-    .attr("transform", `translate(0,${height})`)
-    .call(d3.axisBottom(x))
-    .selectAll("text")
-    .attr("font-size", "12px")
-    .attr("font-weight", d => d === "Recommended" ? "bold" : "normal");
-  
-  svg.append("g")
-    .call(d3.axisLeft(y).ticks(5))
-    .selectAll("text")
-    .attr("font-size", "12px");
-  
-  svg.append("text")
-    .attr("transform", "rotate(-90)")
-    .attr("y", -margin.left + 20)
-    .attr("x", -height / 2)
-    .attr("font-size", "14px")
-    .attr("text-anchor", "middle")
-    .attr("fill", "#666")
-    .text("Grams");
-  
-  const currentDate = new Date();
-  const formattedDate = currentDate.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
-  
-  svg.append("text")
-    .attr("x", width / 2)
-    .attr("y", -margin.top / 2)
-    .attr("text-anchor", "middle")
-    .attr("font-size", "16px")
-    .attr("font-weight", "bold")
-    .attr("fill", "#333")
-    .text(`Long COVID Macronutrient Analysis - ${formattedDate}`);
-  
-  data.forEach(d => {
-    let y0 = 0;
-    d.stackedData = macros.map(nutrient => {
-      return {
-        nutrient,
-        y0,
-        y1: y0 += (d[nutrient] || 0)
-      };
-    });
-  });
-  
-  const tooltip = d3.select("body")
-    .append("div")
-    .attr("class", "d3-tooltip")
-    .style("position", "absolute")
-    .style("background-color", "white")
-    .style("border", "1px solid #ddd")
-    .style("border-radius", "4px")
-    .style("padding", "8px")
-    .style("font-size", "12px")
-    .style("pointer-events", "none")
-    .style("opacity", 0)
-    .style("box-shadow", "0 2px 4px rgba(0,0,0,0.1)")
-    .style("z-index", 100);
-  
-  const groups = svg.selectAll(".bar-group")
-    .data(data)
-    .join("g")
-    .attr("class", "bar-group")
-    .attr("transform", d => `translate(${x(d.name)},0)`);
-  
-  groups.selectAll("rect")
-    .data(d => d.stackedData)
-    .join("rect")
-    .attr("width", x.bandwidth())
-    .attr("y", d => y(d.y1))
-    .attr("height", d => y(d.y0) - y(d.y1))
-    .attr("fill", d => colors[d.nutrient])
-    .attr("stroke", "white")
-    .attr("stroke-width", 1)
-    .on("mouseover", function(event, d) {
-      const parentData = d3.select(this.parentNode).datum();
-      const amount = parentData[d.nutrient].toFixed(1);
-      const percentage = ((parentData[d.nutrient] / (parentData.protein + parentData.carbs + parentData.fat)) * 100).toFixed(1);
+    
+    if (!chartRef.current || !personalizedRDA || !userIntake) return;
+    
+    try {
+      d3.select(chartRef.current).selectAll("*").remove();
+    
+      const margin = { top: 40, right: 180, bottom: 60, left: 70 };
+      const width = 700 - margin.left - margin.right;
+      const height = 350 - margin.top - margin.bottom;
       
-      const caloriesPerGram = d.nutrient === 'fat' ? 9 : 4;
-      const calories = (parentData[d.nutrient] * caloriesPerGram).toFixed(0);
-      
-      const covidNote = parentData.name === "Recommended" && 
-                      personalizedRDA[d.nutrient].covidNote ? 
-                      `<br><span style="color:#6366f1;font-style:italic">${personalizedRDA[d.nutrient].covidNote}</span>` : '';
-      
-      tooltip
-        .style("opacity", 1)
-        .html(`
-          <div style="font-weight:bold;text-transform:capitalize;color:${colors[d.nutrient]}">${d.nutrient}</div>
-          <div style="margin:4px 0">
-            <b>Amount:</b> ${amount}g
-            <br><b>Percentage:</b> ${percentage}%
-            <br><b>Calories:</b> ${calories} kcal
-            ${covidNote}
-          </div>
-        `)
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY - 28) + "px");
+      const svg = d3.select(chartRef.current)
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
         
-      d3.select(this)
-        .attr("stroke", "#333")
-        .attr("stroke-width", 2);
-    })
-    .on("mouseout", function() {
-      tooltip.style("opacity", 0);
-      d3.select(this)
+      const macros = ['protein', 'carbs', 'fat'];
+      const data = [
+        { name: "Current Intake", ...userIntake },
+        { name: "Recommended", 
+          protein: personalizedRDA.protein.value,
+          carbs: personalizedRDA.carbs.value,
+          fat: personalizedRDA.fat.value
+        }
+      ];
+      
+      const colors = {
+        protein: "#22c55e",
+        carbs: "#3b82f6",
+        fat: "#f59e0b"
+      };
+      
+      const x = d3.scaleBand()
+        .domain(data.map(d => d.name))
+        .range([0, width])
+        .padding(0.3);
+      
+      const maxValue = d3.max(data, d => {
+        return d.protein + d.carbs + d.fat;
+      });
+      
+      const y = d3.scaleLinear()
+        .domain([0, maxValue * 1.1])
+        .range([height, 0]);
+      
+      svg.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x))
+        .selectAll("text")
+        .attr("font-size", "12px")
+        .attr("font-weight", d => d === "Recommended" ? "bold" : "normal");
+      
+      svg.append("g")
+        .call(d3.axisLeft(y).ticks(5))
+        .selectAll("text")
+        .attr("font-size", "12px");
+      
+      svg.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", -margin.left + 20)
+        .attr("x", -height / 2)
+        .attr("font-size", "14px")
+        .attr("text-anchor", "middle")
+        .attr("fill", "#666")
+        .text("Grams");
+      
+      const currentDate = new Date();
+      const formattedDate = currentDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      
+      svg.append("text")
+        .attr("x", width / 2)
+        .attr("y", -margin.top / 2)
+        .attr("text-anchor", "middle")
+        .attr("font-size", "16px")
+        .attr("font-weight", "bold")
+        .attr("fill", "#333")
+        .text(`Long COVID Macronutrient Analysis - ${formattedDate}`);
+      
+      data.forEach(d => {
+        let y0 = 0;
+        d.stackedData = macros.map(nutrient => {
+          return {
+            nutrient,
+            y0,
+            y1: y0 += (d[nutrient] || 0)
+          };
+        });
+      });
+      
+      const tooltip = d3.select("body")
+        .append("div")
+        .attr("class", "d3-tooltip")
+        .style("position", "absolute")
+        .style("background-color", "white")
+        .style("border", "1px solid #ddd")
+        .style("border-radius", "4px")
+        .style("padding", "8px")
+        .style("font-size", "12px")
+        .style("pointer-events", "none")
+        .style("opacity", 0)
+        .style("box-shadow", "0 2px 4px rgba(0,0,0,0.1)")
+        .style("z-index", 100);
+      
+      const groups = svg.selectAll(".bar-group")
+        .data(data)
+        .join("g")
+        .attr("class", "bar-group")
+        .attr("transform", d => `translate(${x(d.name)},0)`);
+      
+      groups.selectAll("rect")
+        .data(d => d.stackedData)
+        .join("rect")
+        .attr("width", x.bandwidth())
+        .attr("y", d => y(d.y1))
+        .attr("height", d => y(d.y0) - y(d.y1))
+        .attr("fill", d => colors[d.nutrient])
         .attr("stroke", "white")
-        .attr("stroke-width", 1);
-    });
-  
-  const legend = svg.append("g")
-    .attr("class", "legend")
-    .attr("transform", `translate(${width + 20}, 0)`);
-  
-  macros.forEach((nutrient, i) => {
-    const legendRow = legend.append("g")
-      .attr("transform", `translate(0, ${i * 25})`);
+        .attr("stroke-width", 1)
+        .on("mouseover", function(event, d) {
+          const parentData = d3.select(this.parentNode).datum();
+          const amount = parentData[d.nutrient].toFixed(1);
+          const percentage = ((parentData[d.nutrient] / (parentData.protein + parentData.carbs + parentData.fat)) * 100).toFixed(1);
+          
+          const caloriesPerGram = d.nutrient === 'fat' ? 9 : 4;
+          const calories = (parentData[d.nutrient] * caloriesPerGram).toFixed(0);
+          
+          const covidNote = parentData.name === "Recommended" && 
+                          personalizedRDA[d.nutrient].covidNote ? 
+                          `<br><span style="color:#6366f1;font-style:italic">${personalizedRDA[d.nutrient].covidNote}</span>` : '';
+          
+          tooltip
+            .style("opacity", 1)
+            .html(`
+              <div style="font-weight:bold;text-transform:capitalize;color:${colors[d.nutrient]}">${d.nutrient}</div>
+              <div style="margin:4px 0">
+                <b>Amount:</b> ${amount}g
+                <br><b>Percentage:</b> ${percentage}%
+                <br><b>Calories:</b> ${calories} kcal
+                ${covidNote}
+              </div>
+            `)
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 28) + "px");
+            
+          d3.select(this)
+            .attr("stroke", "#333")
+            .attr("stroke-width", 2);
+        })
+        .on("mouseout", function() {
+          tooltip.style("opacity", 0);
+          d3.select(this)
+            .attr("stroke", "white")
+            .attr("stroke-width", 1);
+        });
       
-    legendRow.append("rect")
-      .attr("width", 15)
-      .attr("height", 15)
-      .attr("fill", colors[nutrient]);
+      const legend = svg.append("g")
+        .attr("class", "legend")
+        .attr("transform", `translate(${width + 20}, 0)`);
       
-    legendRow.append("text")
-      .attr("x", 24)
-      .attr("y", 12)
-      .attr("text-anchor", "start")
-      .style("text-transform", "capitalize")
-      .style("font-size", "14px")
-      .text(nutrient);
-  });
-  
-  if (userData?.covid_condition) {
-    svg.append("text")
-      .attr("x", width / 2)
-      .attr("y", height + 40)
-      .attr("text-anchor", "middle")
-      .attr("font-size", "12px")
-      .attr("font-style", "italic")
-      .attr("fill", "#6366f1")
-      .text("Note: RDA values adjusted for Long COVID recovery needs");
-  }
-  
-  const calculateCalories = (data) => {
-    return (data.protein * 4 + data.carbs * 4 + data.fat * 9).toFixed(0);
-  };
-  
-  const calorieInfo = svg.append("g")
-    .attr("class", "calorie-info")
-    .attr("transform", `translate(${width + 20}, ${macros.length * 25 + 20})`);
-    
-  calorieInfo.append("text")
-    .attr("font-size", "14px")
-    .attr("font-weight", "bold")
-    .text("Total Calories:");
-    
-  calorieInfo.append("text")
-    .attr("y", 25)
-    .attr("font-size", "14px")
-    .text(`Intake: ${calculateCalories(userIntake)} kcal`);
-    
-  calorieInfo.append("text")
-    .attr("y", 50)
-    .attr("font-size", "14px")
-    .text(`Recommended: ${personalizedRDA.calories.value.toFixed(0)} kcal`);
-  
-  return () => {
-    d3.select(".d3-tooltip").remove();
-  };
-}, [chartRef, personalizedRDA, userIntake, userData]);
+      macros.forEach((nutrient, i) => {
+        const legendRow = legend.append("g")
+          .attr("transform", `translate(0, ${i * 25})`);
+          
+        legendRow.append("rect")
+          .attr("width", 15)
+          .attr("height", 15)
+          .attr("fill", colors[nutrient]);
+          
+        legendRow.append("text")
+          .attr("x", 24)
+          .attr("y", 12)
+          .attr("text-anchor", "start")
+          .style("text-transform", "capitalize")
+          .style("font-size", "14px")
+          .text(nutrient);
+      });
+      
+      if (userData?.covid_condition) {
+        svg.append("text")
+          .attr("x", width / 2)
+          .attr("y", height + 40)
+          .attr("text-anchor", "middle")
+          .attr("font-size", "12px")
+          .attr("font-style", "italic")
+          .attr("fill", "#6366f1")
+          .text("Note: RDA values adjusted for Long COVID recovery needs");
+      }
+      
+      const calculateCalories = (data) => {
+        return (data.protein * 4 + data.carbs * 4 + data.fat * 9).toFixed(0);
+      };
+      
+      const calorieInfo = svg.append("g")
+        .attr("class", "calorie-info")
+        .attr("transform", `translate(${width + 20}, ${macros.length * 25 + 20})`);
+        
+      calorieInfo.append("text")
+        .attr("font-size", "14px")
+        .attr("font-weight", "bold")
+        .text("Total Calories:");
+        
+      calorieInfo.append("text")
+        .attr("y", 25)
+        .attr("font-size", "14px")
+        .text(`Intake: ${calculateCalories(userIntake)} kcal`);
+        
+      calorieInfo.append("text")
+        .attr("y", 50)
+        .attr("font-size", "14px")
+        .text(`Recommended: ${personalizedRDA.calories.value.toFixed(0)} kcal`);
+      
+      return () => {
+        d3.select(".d3-tooltip").remove();
+      };
+    } catch (error) {
+      console.error('Error rendering MacronutrientChart:', error);
+    }
+  }, [chartRef, personalizedRDA, userIntake, userData, d3Ready]); // ADD d3Ready to dependencies
 
-return (
-  <div className="w-full">
-    <div 
-      ref={chartRef} 
-      className="macro-chart mx-auto overflow-visible"
-      style={{ minHeight: "350px" }}
-    ></div>
-  </div>
-);
+  // ADD ERROR STATE DISPLAY
+  if (!d3Ready) {
+    return (
+      <div className="w-full">
+        <div className="chart-loading" style={{ minHeight: "350px", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p>Loading chart...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full">
+      <div 
+        ref={chartRef} 
+        className="macro-chart mx-auto overflow-visible"
+        style={{ minHeight: "350px" }}
+      ></div>
+    </div>
+  );
 }
 
 // Updated EfficiencyChart in FoodTrackerAnalysis.js

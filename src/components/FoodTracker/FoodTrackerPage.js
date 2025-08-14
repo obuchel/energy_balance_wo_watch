@@ -18,6 +18,7 @@ import "../Common.css";
 import './FoodTrackerPage.css';
 
 import * as FoodTrackerAnalysis from './FoodTrackerAnalysis';
+import MicronutrientRadarChart from './MicronutrientRadarChart';
 const AnalysisTab = FoodTrackerAnalysis.AnalysisTab;
 
 
@@ -1646,6 +1647,17 @@ return (
           searchTerm={search}
         />
       )}
+
+
+{/* ADD THIS: Micronutrient Radar Chart */}
+{selectedMeal && fields.micronutrients && Object.keys(fields.micronutrients).length > 0 && (
+  <MicronutrientRadarChart 
+    micronutrients={fields.micronutrients}
+    selectedMeal={selectedMeal}
+  />
+)}
+
+
       {!longCovidAdjust && (
         <div className="general-nutrition-info">
           <h3>📊 Nutrition Tips</h3>
