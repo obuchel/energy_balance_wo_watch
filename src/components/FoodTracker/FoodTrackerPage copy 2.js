@@ -16,148 +16,68 @@ limit
 import { db } from '../../firebase-config';
 import "../Common.css";
 import './FoodTrackerPage.css';
-
-import * as FoodTrackerAnalysis from './FoodTrackerAnalysis';
-const AnalysisTab = FoodTrackerAnalysis.AnalysisTab;
-
+import { AnalysisTab } from './FoodTrackerAnalysis';
 
 // TIMEZONE UTILITIES - Centralized timezone handling
-// TIMEZONE UTILITIES - Fixed and more robust
 const getUserTimezone = () => {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+return Intl.DateTimeFormat().resolvedOptions().timeZone;
 };
 
 const getTodayInUserTimezone = () => {
-  const userTimezone = getUserTimezone();
-  const today = new Date();
-  
-  // Get the date string in user's timezone in YYYY-MM-DD format
-  const formatter = new Intl.DateTimeFormat('en-CA', { 
-    timeZone: userTimezone,
-    year: 'numeric',
-    month: '2-digit', 
-    day: '2-digit'
-  });
-  
-  const parts = formatter.formatToParts(today);
-  const year = parts.find(part => part.type === 'year').value;
-  const month = parts.find(part => part.type === 'month').value;
-  const day = parts.find(part => part.type === 'day').value;
-  
-  return `${year}-${month}-${day}`;
+const userTimezone = getUserTimezone();
+const today = new Date();
+return today.toLocaleDateString('en-CA', { timeZone: userTimezone });
 };
 
 const getDaysAgoInUserTimezone = (daysAgo) => {
-  const userTimezone = getUserTimezone();
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
-  
-  // Get the date string in user's timezone in YYYY-MM-DD format
-  const formatter = new Intl.DateTimeFormat('en-CA', { 
-    timeZone: userTimezone,
-    year: 'numeric',
-    month: '2-digit', 
-    day: '2-digit'
-  });
-  
-  const parts = formatter.formatToParts(date);
-  const year = parts.find(part => part.type === 'year').value;
-  const month = parts.find(part => part.type === 'month').value;
-  const day = parts.find(part => part.type === 'day').value;
-  
-  return `${year}-${month}-${day}`;
+const userTimezone = getUserTimezone();
+const date = new Date();
+date.setDate(date.getDate() - daysAgo);
+return date.toLocaleDateString('en-CA', { timeZone: userTimezone });
 };
 
 const parseLocalDate = (dateString) => {
-  if (!dateString) return null;
-  
-  // For YYYY-MM-DD format, create date in local timezone
-  const parts = dateString.split('-');
-  if (parts.length === 3) {
-    const year = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
-    const day = parseInt(parts[2], 10);
-    
-    // Create date object in local timezone (not UTC)
-    return new Date(year, month, day);
-  }
-  
-  return new Date(dateString);
+if (!dateString) return null;
+const parts = dateString.split('-');
+if (parts.length === 3) {
+const year = parseInt(parts[0], 10);
+const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+const day = parseInt(parts[2], 10);
+return new Date(year, month, day);
+}
+return new Date(dateString);
 };
 
 const formatDateHeader = (dateString) => {
-  if (!dateString) return '';
+if (!dateString) return '';
 
-  try {
-    const date = parseLocalDate(dateString);
-    if (!date || isNaN(date.getTime())) return dateString;
+try {
+const date = parseLocalDate(dateString);
+if (!date) return dateString;
 
-    const today = getTodayInUserTimezone();
-    const yesterday = getDaysAgoInUserTimezone(1);
-    
-    console.log('Date comparison:', {
-      dateString,
-      today,
-      yesterday,
-      isToday: dateString === today,
-      isYesterday: dateString === yesterday
-    });
+const today = getTodayInUserTimezone();
+const yesterday = getDaysAgoInUserTimezone(1);
 
-    const options = { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric',
-      timeZone: getUserTimezone() // Ensure formatting is in user's timezone
-    };
-    
-    const formattedDate = date.toLocaleDateString('en-US', options);
-
-    if (dateString === today) {
-      return `Today - ${formattedDate}`;
-    } else if (dateString === yesterday) {
-      return `Yesterday - ${formattedDate}`;
-    } else {
-      return formattedDate;
-    }
-  } catch (error) {
-    console.warn('Error formatting date header:', error);
-    return dateString;
-  }
+const options = { 
+weekday: 'long', 
+year: 'numeric', 
+month: 'long', 
+day: 'numeric' 
 };
+const formattedDate = date.toLocaleDateString('en-US', options);
 
-// Debug function to help diagnose timezone issues
-const debugTimezone = (context = '') => {
-  const userTimezone = getUserTimezone();
-  const now = new Date();
-  const localToday = getTodayInUserTimezone();
-  const utcToday = now.toISOString().split('T')[0];
-  const localTime = now.toLocaleString('en-US', { timeZone: userTimezone });
-
-  console.log(`🌍 Timezone Debug ${context}:`, {
-    userTimezone,
-    localToday,
-    utcToday,
-    timezoneOffset: now.getTimezoneOffset(),
-    localTime,
-    currentTime: now.toString()
-  });
-
-  return { userTimezone, localToday, utcToday };
+if (dateString === today) {
+return `Today - ${formattedDate}`;
+} else if (dateString === yesterday) {
+return `Yesterday - ${formattedDate}`;
+} else {
+return formattedDate;
+}
+} catch (error) {
+console.warn('Error formatting date header:', error);
+return dateString;
+}
 };
-
-// Call this to see what's happening with your dates
-window.debugTimezone = debugTimezone;
-
-
-
-// Replace your date state initialization with:
-// const [date, setDate] = useState(() => initializeDate());
-
-// Add this effect to debug date issues when the component loads:
-
-
-
 
 /*const debugTimezone = (context = '') => {
 const userTimezone = getUserTimezone();
@@ -187,6 +107,7 @@ const navigate = useNavigate();
 // State declarations
 const [allFoodsCache, setAllFoodsCache] = useState([]);
 const [pyodideStatus, setPyodideStatus] = useState('loading');
+const [searchIndexBuilt, setSearchIndexBuilt] = useState(false);
 const [searchFocused, setSearchFocused] = useState(false);
 
 // User and authentication state
@@ -303,63 +224,31 @@ setDeleteConfirmId(null);
 };
 
 // Handle edit entry
-// Replace your existing handleEditEntry function with this enhanced version:
 const handleEditEntry = (entry) => {
-  // Set all the form fields from the entry
-  setFields({
-    name: entry.name,
-    protein: entry.protein,
-    carbs: entry.carbs,
-    fat: entry.fat,
-    calories: entry.calories,
-    serving: entry.serving || 100,
-    micronutrients: entry.micronutrients || {},
-    longCovidBenefits: entry.longCovidBenefits || [],
-    longCovidCautions: entry.longCovidCautions || [],
-    longCovidRelevance: entry.longCovidRelevance || {},
-  });
+setFields({
+name: entry.name,
+protein: entry.protein,
+carbs: entry.carbs,
+fat: entry.fat,
+calories: entry.calories,
+serving: entry.serving || 100,
+micronutrients: entry.micronutrients || {},
+longCovidBenefits: entry.longCovidBenefits || [],
+longCovidCautions: entry.longCovidCautions || [],
+longCovidRelevance: entry.longCovidRelevance || {},
+});
 
-  setMealType(entry.mealType);
-  setTime(entry.time);
-  setDate(entry.date);
-  setLongCovidAdjust(entry.longCovidAdjust || false);
-  setSearch(entry.name);
-  setEditingEntry(entry);
-  
-  // Try to find the original meal data to enable recalculation
-  const originalMeal = allFoodsCache.find(meal => 
-    meal.name.toLowerCase() === entry.name.toLowerCase() || 
-    meal.id === entry.mealId
-  );
-  
-  if (originalMeal) {
-    setSelectedMeal(originalMeal);
-    console.log('Original meal found for editing:', originalMeal.name);
-  } else {
-    // If no original meal found, create a mock meal object for recalculation
-    const mockMeal = {
-      name: entry.name,
-      nutritional_metrics: {
-        nutrients_per_100g: {
-          protein: { value: (entry.protein / (entry.serving || 100)) * 100 },
-          carbs: { value: (entry.carbs / (entry.serving || 100)) * 100 },
-          fat: { value: (entry.fat / (entry.serving || 100)) * 100 },
-          calories: { value: (entry.calories / (entry.serving || 100)) * 100 },
-        }
-      }
-    };
-    setSelectedMeal(mockMeal);
-    console.log('Created mock meal for editing:', entry.name);
-  }
-  
-  setTab('Add Food');
+setMealType(entry.mealType);
+setTime(entry.time);
+setDate(entry.date);
+setLongCovidAdjust(entry.longCovidAdjust || false);
+setSearch(entry.name);
+setEditingEntry(entry);
+setTab('Add Food');
 };
 
+// Handle log food function
 const handleLogFood = async () => {
-  console.log('=== LOGGING FOOD ===');
-  console.log('Date being saved:', date);
-  debugTimezone('Before Save');
-
 if (!currentUser || !currentUser.id) {
 setError('Please log in to save your meals');
 return;
@@ -808,196 +697,36 @@ efficiency *= 0.9;
 
 return Math.min(100, Math.max(0, efficiency));
 };
-// Serving Suggestions Component
-const ServingSuggestions = ({ selectedMeal, onServingSelect, currentServing }) => {
-  if (!selectedMeal || !selectedMeal.nutritional_metrics) return null;
-
-  const { serving_options, common_portions } = selectedMeal.nutritional_metrics;
-  
-  const handleServingClick = (weight, description) => {
-    onServingSelect(weight, description);
-  };
-
-  return (
-    <div className="serving-suggestions">
-      <h4>📏 Serving Size Suggestions</h4>
-      
-      {serving_options && Object.keys(serving_options).length > 0 && (
-        <div className="serving-category">
-          <h5>Standard Serving Options</h5>
-          <div className="serving-buttons">
-            {Object.entries(serving_options).map(([key, option]) => (
-              <button
-                key={key}
-                className={`serving-button ${currentServing === option.weight ? 'selected' : ''}`}
-                onClick={() => handleServingClick(option.weight, option.description)}
-                title={option.description}
-              >
-                <span className="serving-weight">{option.weight}g</span>
-                <span className="serving-description">{option.description}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      
-      {common_portions && Object.keys(common_portions).length > 0 && (
-        <div className="serving-category">
-          <h5>Common Portions</h5>
-          <div className="serving-buttons">
-            {Object.entries(common_portions).map(([key, portion]) => (
-              <button
-                key={key}
-                className={`serving-button ${currentServing === portion.weight ? 'selected' : ''}`}
-                onClick={() => handleServingClick(portion.weight, portion.description)}
-                title={portion.description}
-              >
-                <span className="serving-weight">{portion.weight}g</span>
-                <span className="serving-description">{portion.description}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      
-      <div className="serving-note">
-        <small>💡 Click any suggestion to automatically set the serving size and update nutrition values</small>
-      </div>
-    </div>
-  );
-};
-
-// Enhanced handleSelectMeal function (replace the existing one around line 1200)
-const handleSelectMeal = (meal) => {
-  console.log('handleSelectMeal called with:', meal.name);
-  
-  setSelectedMeal(meal);
-  setSearch(meal.name);
-  setSuggestions([]); // Clear suggestions immediately
-  setSearchFocused(false); // Close the dropdown
-  
-  // Check if meal has new nutritional_metrics structure or old nutrients structure
-  const nutrients = meal.nutritional_metrics?.nutrients_per_100g || meal.nutrients?.per100g || {};
-  
-  // Set default serving - try to use the first serving option if available
-  let defaultServing = 100;
-  if (meal.nutritional_metrics?.serving_options) {
-    const firstOption = Object.values(meal.nutritional_metrics.serving_options)[0];
-    if (firstOption?.weight) {
-      defaultServing = firstOption.weight;
-    }
-  } else if (meal.nutritional_metrics?.common_portions) {
-    const firstPortion = Object.values(meal.nutritional_metrics.common_portions)[0];
-    if (firstPortion?.weight) {
-      defaultServing = firstPortion.weight;
-    }
-  }
-
-  setFields({
-    name: meal.name,
-    protein: nutrients.protein?.value || '',
-    carbs: nutrients.carbs?.value || '',
-    fat: nutrients.fat?.value || '',
-    calories: nutrients.calories?.value || '',
-    serving: defaultServing,
-    micronutrients: nutrients,
-    longCovidBenefits: meal.longCovidBenefits || [],
-    longCovidCautions: meal.longCovidCautions || [],
-    longCovidRelevance: meal.longCovidRelevance || {},
-  });
-
-  // Recalculate nutrients for the default serving
-  if (defaultServing !== 100) {
-    setTimeout(() => recalculateNutrients(defaultServing), 100);
-  }
-
-  // Force blur the search input
-  setTimeout(() => {
-    const searchInput = document.querySelector('.search-input');
-    if (searchInput) {
-      searchInput.blur();
-    }
-  }, 100);
-};
-
-// New function to handle serving selection from suggestions
-const handleServingSelection = (weight, description) => {
-  setFields(prev => ({ ...prev, serving: weight }));
-  recalculateNutrients(weight);
-  
-  // Optional: Show a brief success message
-  setSuccess(`Serving set to ${description}`);
-  setTimeout(() => setSuccess(''), 2000);
-};
-
-// Enhanced recalculateNutrients function (replace the existing one around line 1100)
-const recalculateNutrients = (newServing) => {
-  if (!selectedMeal) {
-    console.log('No selected meal for recalculation');
-    return;
-  }
-  
-  const serving = parseFloat(newServing);
-  if (isNaN(serving) || serving <= 0) {
-    console.log('Invalid serving size for recalculation:', newServing);
-    return;
-  }
-  
-  // Check for new nutritional_metrics structure first, then fall back to old structure
-  const nutrients = selectedMeal.nutritional_metrics?.nutrients_per_100g || 
-                   selectedMeal.nutrients?.per100g || {};
-
-  const ratio = serving / 100;
-  
-  console.log('Recalculating nutrients:', {
-    selectedMeal: selectedMeal.name,
-    newServing: serving,
-    ratio: ratio,
-    originalNutrients: nutrients
-  });
-
-  setFields(prevFields => {
-    const updatedFields = { ...prevFields, serving: serving };
-
-    // Update main macronutrients
-    if (nutrients.protein?.value !== undefined) {
-      updatedFields.protein = (nutrients.protein.value * ratio).toFixed(1);
-    }
-    if (nutrients.carbs?.value !== undefined) {
-      updatedFields.carbs = (nutrients.carbs.value * ratio).toFixed(1);
-    }
-    if (nutrients.fat?.value !== undefined) {
-      updatedFields.fat = (nutrients.fat.value * ratio).toFixed(1);
-    }
-    if (nutrients.calories?.value !== undefined) {
-      updatedFields.calories = (nutrients.calories.value * ratio).toFixed(0);
-    }
-
-    // Update micronutrients
-    updatedFields.micronutrients = {};
-    Object.entries(nutrients).forEach(([key, value]) => {
-      if (!['protein', 'carbs', 'fat', 'calories', 'name', 'unit'].includes(key) && value?.value !== undefined) {
-        updatedFields.micronutrients[key] = {
-          ...value,
-          value: (value.value * ratio).toFixed(1)
-        };
-      }
-    });
-
-    console.log('Updated fields after recalculation:', updatedFields);
-    return updatedFields;
-  });
-};
-
-
-
-
-// In the JSX, add the ServingSuggestions component in the Add Food section
-// Replace the existing nutrition fields section (around line 1700) with this enhanced version:
-
 
 // Recalculate nutrients when serving size changes
+const recalculateNutrients = (newServing) => {
+if (!selectedMeal || !selectedMeal.nutrients?.per100g) return;
 
+const ratio = parseFloat(newServing) / 100;
+if (isNaN(ratio)) return;
+
+setFields(prevFields => {
+const updatedFields = { ...prevFields };
+const nutrients = selectedMeal.nutrients.per100g;
+
+updatedFields.protein = (nutrients.protein?.value * ratio).toFixed(1);
+updatedFields.carbs = (nutrients.carbs?.value * ratio).toFixed(1);
+updatedFields.fat = (nutrients.fat?.value * ratio).toFixed(1);
+updatedFields.calories = (nutrients.calories?.value * ratio).toFixed(0);
+
+updatedFields.micronutrients = {};
+Object.entries(nutrients).forEach(([key, value]) => {
+if (!['protein', 'carbs', 'fat', 'calories', 'name', 'unit'].includes(key)) {
+  updatedFields.micronutrients[key] = {
+    ...value,
+    value: (value.value * ratio).toFixed(1)
+  };
+}
+});
+
+return updatedFields;
+});
+};
 
 // Debounce hook for search
 const useDebounce = (value, delay) => {
@@ -1017,245 +746,162 @@ return debouncedValue;
 const debouncedSearch = useDebounce(search, 300);
 
 // Enhanced AI-powered search with fallback to JavaScript
-// First, let's check if the Python search engine is properly loaded
-// Replace your fetchSuggestions function with this diagnostic version:
-
-// Replace your entire fetchSuggestions function with this simplified working version:
-
 const fetchSuggestions = useCallback(async () => {
-  const normalizedSearch = search.toLowerCase().trim();
+const normalizedSearch = search.toLowerCase().trim();
 
-  console.log('fetchSuggestions called with:', normalizedSearch);
+if (normalizedSearch.length < 2) {
+setSuggestions([]);
+return;
+}
 
-  if (normalizedSearch.length < 2) {
-    setSuggestions([]);
-    return;
-  }
+if (suggestionCache[normalizedSearch]) {
+setSuggestions(suggestionCache[normalizedSearch]);
+return;
+}
 
-  // Check cache first
-  if (suggestionCache[normalizedSearch]) {
-    console.log('Using cached results for:', normalizedSearch);
-    setSuggestions(suggestionCache[normalizedSearch]);
-    return;
-  }
+// JavaScript fallback search algorithm
+const calculateJavaScriptScore = (meal, searchTerm) => {
+const name = (meal.name || '').toLowerCase();
+const category = (meal.category || '').toLowerCase();
+const description = (meal.description || '').toLowerCase();
 
-  try {
-    console.log(`🔍 Search for: "${normalizedSearch}"`);
+let score = 0;
 
-    let allFoods = allFoodsCache;
-    if (allFoods.length === 0) {
-      console.log('📥 Fetching food database...');
-      const q = query(
-        collection(db, 'meals'),
-        limit(1000)
-      );
+if (name === searchTerm) score += 1.0;
+else if (name.startsWith(searchTerm)) score += 0.8;
+else if (name.includes(searchTerm)) score += 0.6;
 
-      const snap = await getDocs(q);
-      allFoods = snap.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data()
-      }));
+if (category.includes(searchTerm)) score += 0.3;
+if (description.includes(searchTerm)) score += 0.2;
 
-      setAllFoodsCache(allFoods);
-      console.log(`📊 Loaded ${allFoods.length} foods into cache`);
-    }
+const nameWords = name.split(' ');
+const searchWords = searchTerm.split(' ');
+let wordMatches = 0;
 
-    // Simple JavaScript search that actually works
-    const results = allFoods
-      .filter(meal => {
-        if (!meal.name) return false;
-        
-        const mealNameLower = meal.name.toLowerCase();
-        const category = (meal.category || '').toLowerCase();
-        const description = (meal.description || '').toLowerCase();
-        
-        return mealNameLower.includes(normalizedSearch) ||
-               mealNameLower.startsWith(normalizedSearch) ||
-               category.includes(normalizedSearch) ||
-               description.includes(normalizedSearch) ||
-               mealNameLower.split(' ').some(word => word.startsWith(normalizedSearch));
-      })
-      .sort((a, b) => {
-        const aName = (a.name || '').toLowerCase();
-        const bName = (b.name || '').toLowerCase();
-        
-        // Exact matches first
-        if (aName === normalizedSearch && bName !== normalizedSearch) return -1;
-        if (bName === normalizedSearch && aName !== normalizedSearch) return 1;
-        
-        // Starts with search term
-        if (aName.startsWith(normalizedSearch) && !bName.startsWith(normalizedSearch)) return -1;
-        if (bName.startsWith(normalizedSearch) && !aName.startsWith(normalizedSearch)) return 1;
-        
-        // Alphabetical otherwise
-        return aName.localeCompare(bName);
-      })
-      .slice(0, 15)
-      .map(food => ({
-        ...food,
-        searchMethod: 'javascript',
-        searchScore: 0.8
-      }));
+searchWords.forEach(searchWord => {
+nameWords.forEach(nameWord => {
+  if (nameWord.startsWith(searchWord)) wordMatches++;
+});
+});
 
-    console.log(`✅ Found ${results.length} results`);
+score += (wordMatches / Math.max(searchWords.length, 1)) * 0.4;
 
-    // Cache the results
-    setSuggestionCache(prev => ({
-      ...prev,
-      [normalizedSearch]: results
-    }));
+return score;
+};
 
-    setSuggestions(results);
+const performFallbackSearch = (normalizedSearch, allFoods) => {
+return allFoods
+.filter(meal => {
+  if (!meal.name) return false;
+  
+  const mealNameLower = meal.name.toLowerCase();
+  const category = (meal.category || '').toLowerCase();
+  const description = (meal.description || '').toLowerCase();
+  const benefits = (meal.longCovidBenefits || []).join(' ').toLowerCase();
+  
+  return mealNameLower.includes(normalizedSearch) ||
+         mealNameLower.startsWith(normalizedSearch) ||
+         category.includes(normalizedSearch) ||
+         description.includes(normalizedSearch) ||
+         benefits.includes(normalizedSearch) ||
+         mealNameLower.split(' ').some(word => word.startsWith(normalizedSearch));
+})
+.map(meal => ({
+  ...meal,
+  searchMethod: 'javascript',
+  searchScore: calculateJavaScriptScore(meal, normalizedSearch)
+}))
+.sort((a, b) => {
+  const aName = (a.name || '').toLowerCase();
+  const bName = (b.name || '').toLowerCase();
+  
+  if (aName === normalizedSearch && bName !== normalizedSearch) return -1;
+  if (bName === normalizedSearch && aName !== normalizedSearch) return 1;
+  
+  if (aName.startsWith(normalizedSearch) && !bName.startsWith(normalizedSearch)) return -1;
+  if (bName.startsWith(normalizedSearch) && !aName.startsWith(normalizedSearch)) return 1;
+  
+  return (b.searchScore || 0) - (a.searchScore || 0);
+})
+.slice(0, 15);
+};
 
-  } catch (err) {
-    console.error('❌ Search error:', err);
-    setSuggestions([]);
-  }
-}, [search, suggestionCache, allFoodsCache]);
+try {
+console.log(`🔍 Enhanced search for: "${normalizedSearch}"`);
 
-// Simplified renderSearchInput function:
-const renderSearchInput = () => (
-  <div className="form-group search-group">
-    <label>Search Food</label>
-    <div className={`search-input-container ${searchFocused ? 'search-focused' : ''}`}>
-      <input
-        type="text"
-        value={search}
-        onChange={e => { 
-          const newValue = e.target.value;
-          setSearch(newValue); 
-          setSelectedMeal(null);
-          if (newValue.length < 2) {
-            setSuggestions([]);
-          }
-        }}
-        onFocus={() => setSearchFocused(true)}
-        onBlur={() => {
-          setTimeout(() => {
-            setSearchFocused(false);
-            setSuggestions([]);
-          }, 200);
-        }}
-        placeholder="Search foods..."
-        autoComplete="off"
-        className="search-input"
-      />
-
-      {/* Clear button */}
-      {search.length > 0 && (
-        <button 
-          onClick={clearSearch}
-          className="clear-search-button"
-          type="button"
-          title="Clear search"
-        >
-          ✕
-        </button>
-      )}
-
-      <div className="search-status">
-        {suggestions.length > 0 && (
-          <span className="result-count">({suggestions.length} results)</span>
-        )}
-      </div>
-    </div>
-
-    {suggestions.length > 0 && searchFocused && (
-      <ul className="suggestions-list">
-        {suggestions.map((s, index) => (
-          <li 
-            key={s.id || index} 
-            onClick={() => handleSelectMeal(s)}
-            onMouseDown={(e) => e.preventDefault()}
-          >
-            <div className="suggestion-main">
-              <div className="suggestion-name">{s.name}</div>
-              {s.category && (
-                <div className="suggestion-category">{s.category}</div>
-              )}
-            </div>
-            
-            <div className="suggestion-indicators">
-              {longCovidAdjust && (
-                <span className={`covid-indicator ${getCovidFoodRating(s.name)}`}>
-                  {getCovidFoodRating(s.name) === 'beneficial' ? '✅' : 
-                   getCovidFoodRating(s.name) === 'caution' ? '⚠️' : 'ℹ️'}
-                </span>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
-    )}
-  </div>
+let allFoods = allFoodsCache;
+if (allFoods.length === 0) {
+console.log('📥 Fetching food database...');
+const q = query(
+  collection(db, 'meals'),
+  limit(1000)
 );
 
+const snap = await getDocs(q);
+allFoods = snap.docs.map(doc => ({ 
+  id: doc.id, 
+  ...doc.data()
+}));
 
-// Remove the unused clearSearch function warning by using it:
-const clearSearch = () => {
-  setSearch('');
-  setSuggestions([]);
-  setSelectedMeal(null);
-  setSearchFocused(false);
-  setFields({});
-};
+setAllFoodsCache(allFoods);
+console.log(`📊 Loaded ${allFoods.length} foods into cache`);
 
-
-// Remove the complex Pyodide monitoring and replace with simple status:
-useEffect(() => {
-  setPyodideStatus('unavailable'); // Simplify for now
-}, []);
-
-
-
-const debugPythonSetup = async () => {
-  if (!window.pyodideReady) {
-    console.log('❌ Pyodide not ready');
-    return;
-  }
-  
+if (window.pyodideReady && !searchIndexBuilt) {
   try {
-    console.log('🔧 Testing Python setup...');
-    
-    // Test basic Python functionality
-    const basicTest = await window.pyodide.runPython(`
-import json
-json.dumps({"python_working": True, "test": "hello"})
+    console.log('🏗️ Building search index...');
+    const result = await window.pyodide.runPython(`
+      result = search_engine.build_index('${JSON.stringify(allFoods).replace(/'/g, "\\'")}')
+      result
     `);
-    console.log('Basic Python test:', JSON.parse(basicTest));
-    
-    // Check what modules are available
-    const modulesTest = await window.pyodide.runPython(`
-import json
-import sys
-modules = list(sys.modules.keys())
-json.dumps({"modules_count": len(modules), "has_json": "json" in modules})
-    `);
-    console.log('Modules test:', JSON.parse(modulesTest));
-    
-    // Test search engine
-    const engineTest = await window.pyodide.runPython(`
-import json
-try:
-    engine_info = {
-        "exists": "search_engine" in globals(),
-        "type": str(type(search_engine)) if "search_engine" in globals() else "not_found"
-    }
-    json.dumps(engine_info)
-except Exception as e:
-    json.dumps({"error": str(e)})
-    `);
-    console.log('Search engine test:', JSON.parse(engineTest));
-    
+    setSearchIndexBuilt(true);
+    window.searchIndexBuilt = true;
+    console.log('✅ Search index built:', result);
   } catch (error) {
-    console.error('❌ Python debug failed:', error);
+    console.error('❌ Error building Python index:', error);
   }
-};
+}
+}
 
-// You can call this function from the browser console to test: debugPythonSetup()
-window.debugPythonSetup = debugPythonSetup;
-// Also add a function to clear search and reset the form:
+let results = [];
 
+if (window.pyodideReady && searchIndexBuilt) {
+try {
+  console.log('🚀 Using AI-powered search');
+  const pythonResults = await window.pyodide.runPython(`
+    results = search_engine.search("${normalizedSearch.replace(/"/g, '\\"')}", 15)
+    json.dumps(results)
+  `);
+  
+  results = JSON.parse(pythonResults);
+  console.log(`🎯 AI search returned ${results.length} results`);
+  
+  results = results.map(food => ({
+    ...food,
+    searchMethod: 'ai',
+    searchScore: food.search_score || 0
+  }));
+  
+} catch (error) {
+  console.error('❌ Python search failed, using fallback:', error);
+  results = performFallbackSearch(normalizedSearch, allFoods);
+}
+} else {
+console.log('📝 Using fallback JavaScript search');
+results = performFallbackSearch(normalizedSearch, allFoods);
+}
+
+setSuggestionCache(prev => ({
+...prev,
+[normalizedSearch]: results
+}));
+
+setSuggestions(results);
+
+} catch (err) {
+console.error('❌ Search error:', err);
+setSuggestions([]);
+}
+}, [search, suggestionCache, allFoodsCache, searchIndexBuilt]);
 
 // Monitor Pyodide status for AI search capabilities
 useEffect(() => {
@@ -1293,46 +939,144 @@ clearInterval(interval);
 };
 }, []);
 
-
-
-// Keep your useEffect simple:
-useEffect(() => {
-  console.log('=== TIMEZONE DEBUG ON LOAD ===');
-  debugTimezone('Component Load');
-  
-  const today = getTodayInUserTimezone();
-  const yesterday = getDaysAgoInUserTimezone(1);
-  
-  console.log('Date calculations:', {
-    today,
-    yesterday,
-    currentDateState: date
-  });
-}, [date]); // Added 'date' dependency to fix the warning
-
-// Keep your search useEffect separate:
-useEffect(() => {
-  if (debouncedSearch.length < 2) {
-    setSuggestions([]);
-    return;
+// Search input component with AI capabilities
+const renderSearchInput = () => (
+<div className="form-group search-group">
+<label>Search Food</label>
+<div className={`search-input-container ${searchFocused ? 'search-focused' : ''}`}>
+<input
+  type="text"
+  value={search}
+  onChange={e => { 
+    setSearch(e.target.value); 
+    setSelectedMeal(null); 
+  }}
+  onFocus={() => setSearchFocused(true)}
+  onBlur={() => {
+    setTimeout(() => {
+      setSearchFocused(false);
+      setSuggestions([]);
+    }, 200);
+  }}
+  placeholder={
+    pyodideStatus === 'ready' ? "🧠 AI-powered search ready..." :
+    pyodideStatus === 'loading' ? "🔄 Loading AI search..." :
+    "Search foods..."
   }
-  fetchSuggestions();
+  autoComplete="off"
+  className="search-input enhanced-search"
+/>
+
+<div className={`search-status ${pyodideStatus}`}>
+  {pyodideStatus === 'ready' && searchIndexBuilt && (
+    <span className="status-ready">🚀 AI Search Active</span>
+  )}
+  {pyodideStatus === 'ready' && !searchIndexBuilt && (
+    <span className="status-indexing">⚡ Building AI Index...</span>
+  )}
+  {pyodideStatus === 'loading' && (
+    <span className="status-loading">🔄 Loading AI...</span>
+  )}
+  {pyodideStatus === 'unavailable' && (
+    <span className="status-basic">📝 Basic Search</span>
+  )}
+  {suggestions.length > 0 && (
+    <span className="result-count">({suggestions.length} results)</span>
+  )}
+</div>
+</div>
+
+{suggestions.length > 0 && searchFocused && (
+<ul className="suggestions-list enhanced">
+  {suggestions.map((s, index) => (
+    <li key={s.id || index} onClick={() => handleSelectMeal(s)}>
+      <div className="suggestion-main">
+        <div className="suggestion-name">{s.name}</div>
+        {s.category && (
+          <div className="suggestion-category">{s.category}</div>
+        )}
+        <div className="suggestion-meta">
+          {s.searchScore && (
+            <span className="search-score">
+              {(s.searchScore * 100).toFixed(0)}% match
+            </span>
+          )}
+          {s.searchMethod === 'ai' && (
+            <span className="ai-badge">🧠 AI</span>
+          )}
+          {s.searchMethod === 'javascript' && (
+            <span className="js-badge">JS</span>
+          )}
+          {s.match_type && (
+            <span className="match-type">{s.match_type}</span>
+          )}
+        </div>
+      </div>
+      
+      <div className="suggestion-indicators">
+        {longCovidAdjust && (
+          <span className={`covid-indicator ${getCovidFoodRating(s.name)}`}>
+            {getCovidFoodRating(s.name) === 'beneficial' ? '✅' : 
+             getCovidFoodRating(s.name) === 'caution' ? '⚠️' : 'ℹ️'}
+          </span>
+        )}
+      </div>
+    </li>
+  ))}
+</ul>
+)}
+</div>
+);
+
+// Fetch suggestions effect
+useEffect(() => {
+if (debouncedSearch.length < 2) {
+setSuggestions([]);
+return;
+}
+
+fetchSuggestions();
 }, [debouncedSearch, fetchSuggestions]);
 
+// Handle meal selection
+const handleSelectMeal = (meal) => {
+setSelectedMeal(meal);
+setSearch(meal.name);
+setSuggestions([]);
+setSearchFocused(false);
+
+const defaultServing = 100;
+const nutrients = meal.nutrients?.per100g || {};
+
+setFields({
+name: meal.name,
+protein: nutrients.protein?.value || '',
+carbs: nutrients.carbs?.value || '',
+fat: nutrients.fat?.value || '',
+calories: nutrients.calories?.value || '',
+serving: defaultServing,
+micronutrients: nutrients,
+longCovidBenefits: meal.longCovidBenefits || [],
+longCovidCautions: meal.longCovidCautions || [],
+longCovidRelevance: meal.longCovidRelevance || {},
+});
+
+const searchInput = document.querySelector('.search-input');
+if (searchInput) {
+searchInput.blur();
+}
+};
 
 // Handle field changes
 const handleFieldChange = (e) => {
-  const { name, value } = e.target;
+const { name, value } = e.target;
 
-  if (name === 'serving') {
-    setFields(prev => ({ ...prev, [name]: value }));
-    // Only recalculate if we have a selected meal with original nutrition data
-    if (selectedMeal) {
-      recalculateNutrients(value);
-    }
-  } else {
-    setFields(prev => ({ ...prev, [name]: value }));
-  }
+if (name === 'serving') {
+setFields(prev => ({ ...prev, [name]: value }));
+recalculateNutrients(value);
+} else {
+setFields(prev => ({ ...prev, [name]: value }));
+}
 };
 
 // Fetch food log function
@@ -1513,65 +1257,54 @@ return (
 
       {renderSearchInput()}
 
-     {/* Nutrition fields with serving suggestions */}
-{selectedMeal && (
-  <ServingSuggestions 
-    selectedMeal={selectedMeal}
-    onServingSelect={handleServingSelection}
-    currentServing={fields.serving}
-  />
-)}
-
-<div className="form-row">
-  <div className="form-group">
-    <input 
-      name="protein" 
-      value={fields.protein || ''} 
-      onChange={handleFieldChange} 
-      type="number"
-      step="0.1"
-      placeholder=" "
-      readOnly={selectedMeal} // Make read-only when a meal is selected to prevent confusion
-    />
-    <label>Protein (g)</label>
-  </div>
-  <div className="form-group">
-    <input 
-      name="carbs" 
-      value={fields.carbs || ''} 
-      onChange={handleFieldChange} 
-      type="number"
-      step="0.1"
-      placeholder=" "
-      readOnly={selectedMeal}
-    />
-    <label>Carbs (g)</label>
-  </div>
-  <div className="form-group">
-    <input 
-      name="fat" 
-      value={fields.fat || ''} 
-      onChange={handleFieldChange} 
-      type="number"
-      step="0.1"
-      placeholder=" "
-      readOnly={selectedMeal}
-    />
-    <label>Fat (g)</label>
-  </div>
-  <div className="form-group">
-    <input 
-      name="serving" 
-      value={fields.serving || ''} 
-      onChange={handleFieldChange}
-      type="number"
-      step="1"
-      className="serving-input"
-      placeholder=" "
-    />
-    <label>Serving (g)</label>
-  </div>
-</div>
+      {/* Nutrition fields */}
+      <div className="form-row">
+        <div className="form-group">
+          <input 
+            name="protein" 
+            value={fields.protein || ''} 
+            onChange={handleFieldChange} 
+            type="number"
+            step="0.1"
+            placeholder=" "
+          />
+          <label>Protein (g)</label>
+        </div>
+        <div className="form-group">
+          <input 
+            name="carbs" 
+            value={fields.carbs || ''} 
+            onChange={handleFieldChange} 
+            type="number"
+            step="0.1"
+            placeholder=" "
+          />
+          <label>Carbs (g)</label>
+        </div>
+        <div className="form-group">
+          <input 
+            name="fat" 
+            value={fields.fat || ''} 
+            onChange={handleFieldChange} 
+            type="number"
+            step="0.1"
+            placeholder=" "
+          />
+          <label>Fat (g)</label>
+        </div>
+        <div className="form-group">
+          <input 
+            name="serving" 
+            value={fields.serving || ''} 
+            onChange={handleFieldChange}
+            type="number"
+            step="1"
+            className="serving-input"
+            placeholder=" "
+          />
+          <label>Serving (g)</label>
+        </div>
+      </div>
 
       {/* Meal details */}
       <div className="form-row">

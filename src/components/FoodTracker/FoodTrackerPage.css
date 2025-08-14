@@ -1456,3 +1456,520 @@
   outline: 3px solid #3b82f6;
   outline-offset: 2px;
 }
+/* Add this CSS to your FoodTrackerPage.css file */
+
+.serving-suggestions {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 1px solid #dee2e6;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.serving-suggestions h4 {
+  margin: 0 0 12px 0;
+  color: #495057;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.serving-category {
+  margin-bottom: 16px;
+}
+
+.serving-category:last-of-type {
+  margin-bottom: 8px;
+}
+
+.serving-category h5 {
+  margin: 0 0 8px 0;
+  color: #6c757d;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.serving-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.serving-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 12px;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+  text-align: center;
+}
+
+.serving-button:hover {
+  border-color: #007bff;
+  background: #f8f9ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,123,255,0.2);
+}
+
+.serving-button.selected {
+  border-color: #007bff;
+  background: #007bff;
+  color: white;
+  box-shadow: 0 2px 8px rgba(0,123,255,0.3);
+}
+
+.serving-weight {
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.serving-description {
+  font-size: 0.75rem;
+  line-height: 1.1;
+  margin-top: 2px;
+  opacity: 0.8;
+}
+
+.serving-button.selected .serving-description {
+  opacity: 1;
+}
+
+.serving-note {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  margin-top: 8px;
+}
+
+/* Responsive design for serving buttons */
+@media (max-width: 768px) {
+  .serving-buttons {
+    gap: 6px;
+  }
+  
+  .serving-button {
+    min-width: 70px;
+    padding: 6px 8px;
+  }
+  
+  .serving-weight {
+    font-size: 0.9rem;
+  }
+  
+  .serving-description {
+    font-size: 0.7rem;
+  }
+}
+/* Make nutrition inputs read-only when meal is selected */
+.form-group input[readonly] {
+  background-color: #f8f9fa;
+  border-color: #e9ecef;
+  cursor: not-allowed;
+}
+
+.form-group input[readonly]:focus {
+  box-shadow: none;
+  border-color: #e9ecef;
+}
+
+.search-input-container {
+  position: relative;
+}
+
+.clear-search-button {
+  position: absolute;
+  right: 45px; /* Adjust based on your layout */
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.clear-search-button:hover {
+  background-color: #f8f9fa;
+  color: #495057;
+}
+
+.clear-search-button:active {
+  background-color: #e9ecef;
+}
+
+/* Add this CSS to your FoodTrackerPage.css file */
+
+/* Analytics Tab Styles */
+.analysis-tab {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.analysis-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.analysis-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.5rem;
+}
+
+.timeframe-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.timeframe-selector button {
+  padding: 8px 16px;
+  border: 1px solid #dee2e6;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.timeframe-selector button:hover {
+  background: #f8f9fa;
+  border-color: #007bff;
+}
+
+.timeframe-selector button.active {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.analysis-content {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 24px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.stat-card:nth-child(2) {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.stat-card:nth-child(3) {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.stat-card:nth-child(4) {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.stat-number {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+/* Daily Breakdown */
+.daily-breakdown {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.daily-breakdown h4 {
+  margin: 0 0 20px 0;
+  color: #333;
+}
+
+.daily-chart {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  height: 200px;
+  gap: 12px;
+}
+
+.daily-bar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.bar-container {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.bar {
+  width: 100%;
+  max-width: 40px;
+  border-radius: 4px 4px 0 0;
+  transition: all 0.3s ease;
+  min-height: 4px;
+}
+
+.bar-label {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.bar-label .calories {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.bar-label .date {
+  font-size: 0.75rem;
+  color: #666;
+  margin-top: 2px;
+}
+
+/* Macro Distribution */
+.macro-distribution {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.macro-distribution h4 {
+  margin: 0 0 20px 0;
+  color: #333;
+}
+
+.macro-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.macro-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.macro-label {
+  min-width: 140px;
+  font-size: 0.9rem;
+  color: #555;
+  font-weight: 500;
+}
+
+.bar-track {
+  flex: 1;
+  height: 20px;
+  background: #f1f3f4;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.5s ease;
+}
+
+.bar-fill.protein {
+  background: linear-gradient(90deg, #ff6b6b, #ee5a52);
+}
+
+.bar-fill.carbs {
+  background: linear-gradient(90deg, #4ecdc4, #44a08d);
+}
+
+.bar-fill.fat {
+  background: linear-gradient(90deg, #ffd93d, #ff9068);
+}
+
+/* Top Foods */
+.top-foods {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.top-foods h4 {
+  margin: 0 0 20px 0;
+  color: #333;
+}
+
+.foods-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.food-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+}
+
+.food-item:hover {
+  background: #e9ecef;
+}
+
+.food-rank {
+  font-weight: bold;
+  color: #007bff;
+  min-width: 30px;
+}
+
+.food-name {
+  flex: 1;
+  color: #333;
+  font-weight: 500;
+}
+
+.food-count {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* Long COVID Insights */
+.long-covid-insights {
+  background: linear-gradient(135deg, #667eea20, #764ba220);
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid #dee2e6;
+}
+
+.long-covid-insights h4 {
+  margin: 0 0 20px 0;
+  color: #333;
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.insight-card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.insight-title {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.insight-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #007bff;
+}
+
+/* No Data State */
+.no-data {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.no-data h4 {
+  margin: 0 0 12px 0;
+  color: #333;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .analysis-tab {
+    padding: 16px;
+  }
+  
+  .analysis-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+  }
+  
+  .stat-card {
+    padding: 20px 16px;
+  }
+  
+  .stat-number {
+    font-size: 1.5rem;
+  }
+  
+  .daily-chart {
+    gap: 8px;
+  }
+  
+  .bar {
+    max-width: 30px;
+  }
+  
+  .macro-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .macro-label {
+    min-width: auto;
+    text-align: center;
+  }
+}
