@@ -1,55 +1,37 @@
+
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import * as d3 from 'd3';
 import './MicronutrientChart.css';
 import './FoodTrackerAnalysis.css';
+
 // Import enhanced efficiency functions
 import { 
   calculateFoodEfficiency
 } from './enhanced-efficiency-functions';
-const isD3Available = () => {
-  return d3 && typeof d3.select === 'function' && typeof d3.scaleLinear === 'function';
-};
+
+// FIXED: Use ONLY named imports for D3
+import { 
+  select, 
+  scaleBand, 
+  scaleLinear, 
+  axisBottom, 
+  axisLeft, 
+  axisRight,
+  max,
+  sum,
+  group,
+  line,
+  curveMonotoneX
+} from 'd3';
+
+// REMOVED: The problematic wildcard import and getD3() function
+
 // FIXED: Utility functions to handle dates without timezone issues
 const parseDate = (dateString) => {
   const parts = dateString.split('-');
   return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
 };
-const useD3Ready = () => {
-  const [d3Ready, setD3Ready] = useState(false);
-  
-  useEffect(() => {
-    const checkD3 = () => {
-      if (isD3Available()) {
-        setD3Ready(true);
-        return true;
-      }
-      return false;
-    };
-    
-    // Check immediately
-    if (checkD3()) return;
-    
-    // If not ready, check every 100ms for up to 5 seconds
-    const interval = setInterval(() => {
-      if (checkD3()) {
-        clearInterval(interval);
-      }
-    }, 100);
-    
-    // Cleanup after 5 seconds
-    const timeout = setTimeout(() => {
-      clearInterval(interval);
-      console.warn('D3 failed to load within 5 seconds');
-    }, 5000);
-    
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timeout);
-    };
-  }, []);
-  
-  return d3Ready;
-};
+
 const formatDateForComparison = (date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -93,32 +75,31 @@ function ensureCompleteNutrientData(intakeData, baseRDAData) {
         let finalUnit = intakeValue.unit;
         
         // FIXED: Handle unit conversions more carefully
-       // FIXED: Handle unit conversions more carefully
-if (finalUnit !== rdaInfo.unit) {
-  // Convert common unit mismatches
-  if (finalUnit === 'mcg' && rdaInfo.unit === 'mg') {
-    finalValue = finalValue / 1000;
-    finalUnit = 'mg';
-  } else if (finalUnit === 'mg' && rdaInfo.unit === 'mcg') {
-    finalValue = finalValue * 1000;
-    finalUnit = 'mcg';
-  } else if (finalUnit === 'g' && rdaInfo.unit === 'mg') {
-    finalValue = finalValue * 1000;
-    finalUnit = 'mg';
-  }
-  // ADD THIS: IU to mcg conversion for vitamin A
-  else if (finalUnit === 'IU' && nutrientKey === 'vitamin_a' && rdaInfo.unit === 'mcg') {
-    finalValue = finalValue * 0.3; // 1 IU ≈ 0.3 mcg RAE for vitamin A
-    finalUnit = 'mcg';
-  }
-  // ADD THIS: IU to mcg conversion for vitamin D  
-  else if (finalUnit === 'IU' && nutrientKey === 'vitamin_d' && rdaInfo.unit === 'mcg') {
-    finalValue = finalValue * 0.025; // 1 IU = 0.025 mcg for vitamin D
-    finalUnit = 'mcg';
-  }
-  
-  console.log(`Converted ${nutrientKey}: ${intakeValue.value} ${intakeValue.unit} → ${finalValue} ${finalUnit}`);
-}
+        if (finalUnit !== rdaInfo.unit) {
+          // Convert common unit mismatches
+          if (finalUnit === 'mcg' && rdaInfo.unit === 'mg') {
+            finalValue = finalValue / 1000;
+            finalUnit = 'mg';
+          } else if (finalUnit === 'mg' && rdaInfo.unit === 'mcg') {
+            finalValue = finalValue * 1000;
+            finalUnit = 'mcg';
+          } else if (finalUnit === 'g' && rdaInfo.unit === 'mg') {
+            finalValue = finalValue * 1000;
+            finalUnit = 'mg';
+          }
+          // ADD THIS: IU to mcg conversion for vitamin A
+          else if (finalUnit === 'IU' && nutrientKey === 'vitamin_a' && rdaInfo.unit === 'mcg') {
+            finalValue = finalValue * 0.3; // 1 IU ≈ 0.3 mcg RAE for vitamin A
+            finalUnit = 'mcg';
+          }
+          // ADD THIS: IU to mcg conversion for vitamin D  
+          else if (finalUnit === 'IU' && nutrientKey === 'vitamin_d' && rdaInfo.unit === 'mcg') {
+            finalValue = finalValue * 0.025; // 1 IU = 0.025 mcg for vitamin D
+            finalUnit = 'mcg';
+          }
+          
+          console.log(`Converted ${nutrientKey}: ${intakeValue.value} ${intakeValue.unit} → ${finalValue} ${finalUnit}`);
+        }
         
         completeIntakeData[nutrientKey] = {
           value: finalValue,
@@ -163,12 +144,10 @@ if (finalUnit !== rdaInfo.unit) {
   return completeIntakeData;
 }
 
-// Replace your ENTIRE MacronutrientChart function with this complete version:
-
+// MacronutrientChart component
 function MacronutrientChart({ userData, userIntake = {} }) {
   const chartRef = useRef(null);
   const [personalizedRDA, setPersonalizedRDA] = useState(null);
-  const d3Ready = useD3Ready(); // This line should already be there
 
   const calculatePersonalizedRDA = useCallback((userData) => {
     const calculateBMI = (weight, height) => {
@@ -297,27 +276,17 @@ function MacronutrientChart({ userData, userIntake = {} }) {
   }, [userData, calculatePersonalizedRDA]);
 
   useEffect(() => {
-    // ADD THIS CHECK
-    if (!d3Ready) {
-      console.log('D3 not ready yet, waiting...');
-      return;
-    }
-    
-    if (!isD3Available()) {
-      console.error('D3 functions not available');
-      return;
-    }
-    
     if (!chartRef.current || !personalizedRDA || !userIntake) return;
     
     try {
-      d3.select(chartRef.current).selectAll("*").remove();
-    
+      // FIXED: Use direct named import instead of getD3()
+      select(chartRef.current).selectAll("*").remove();
+  
       const margin = { top: 40, right: 180, bottom: 60, left: 70 };
       const width = 700 - margin.left - margin.right;
       const height = 350 - margin.top - margin.bottom;
       
-      const svg = d3.select(chartRef.current)
+      const svg = select(chartRef.current)
         .append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
@@ -340,28 +309,28 @@ function MacronutrientChart({ userData, userIntake = {} }) {
         fat: "#f59e0b"
       };
       
-      const x = d3.scaleBand()
+      const x = scaleBand()
         .domain(data.map(d => d.name))
         .range([0, width])
         .padding(0.3);
       
-      const maxValue = d3.max(data, d => {
+      const maxValue = max(data, d => {
         return d.protein + d.carbs + d.fat;
       });
       
-      const y = d3.scaleLinear()
+      const y = scaleLinear()
         .domain([0, maxValue * 1.1])
         .range([height, 0]);
       
       svg.append("g")
         .attr("transform", `translate(0,${height})`)
-        .call(d3.axisBottom(x))
+        .call(axisBottom(x))
         .selectAll("text")
         .attr("font-size", "12px")
         .attr("font-weight", d => d === "Recommended" ? "bold" : "normal");
       
       svg.append("g")
-        .call(d3.axisLeft(y).ticks(5))
+        .call(axisLeft(y).ticks(5))
         .selectAll("text")
         .attr("font-size", "12px");
       
@@ -401,7 +370,7 @@ function MacronutrientChart({ userData, userIntake = {} }) {
         });
       });
       
-      const tooltip = d3.select("body")
+      const tooltip = select("body")
         .append("div")
         .attr("class", "d3-tooltip")
         .style("position", "absolute")
@@ -431,7 +400,7 @@ function MacronutrientChart({ userData, userIntake = {} }) {
         .attr("stroke", "white")
         .attr("stroke-width", 1)
         .on("mouseover", function(event, d) {
-          const parentData = d3.select(this.parentNode).datum();
+          const parentData = select(this.parentNode).datum();
           const amount = parentData[d.nutrient].toFixed(1);
           const percentage = ((parentData[d.nutrient] / (parentData.protein + parentData.carbs + parentData.fat)) * 100).toFixed(1);
           
@@ -456,13 +425,13 @@ function MacronutrientChart({ userData, userIntake = {} }) {
             .style("left", (event.pageX + 10) + "px")
             .style("top", (event.pageY - 28) + "px");
             
-          d3.select(this)
+          select(this)
             .attr("stroke", "#333")
             .attr("stroke-width", 2);
         })
         .on("mouseout", function() {
           tooltip.style("opacity", 0);
-          d3.select(this)
+          select(this)
             .attr("stroke", "white")
             .attr("stroke-width", 1);
         });
@@ -524,23 +493,12 @@ function MacronutrientChart({ userData, userIntake = {} }) {
         .text(`Recommended: ${personalizedRDA.calories.value.toFixed(0)} kcal`);
       
       return () => {
-        d3.select(".d3-tooltip").remove();
+        select(".d3-tooltip").remove();
       };
     } catch (error) {
       console.error('Error rendering MacronutrientChart:', error);
     }
-  }, [chartRef, personalizedRDA, userIntake, userData, d3Ready]); // ADD d3Ready to dependencies
-
-  // ADD ERROR STATE DISPLAY
-  if (!d3Ready) {
-    return (
-      <div className="w-full">
-        <div className="chart-loading" style={{ minHeight: "350px", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <p>Loading chart...</p>
-        </div>
-      </div>
-    );
-  }
+  }, [chartRef, personalizedRDA, userIntake, userData]);
 
   return (
     <div className="w-full">
@@ -553,7 +511,7 @@ function MacronutrientChart({ userData, userIntake = {} }) {
   );
 }
 
-// Updated EfficiencyChart in FoodTrackerAnalysis.js
+// Updated EfficiencyChart - FIXED to use named imports
 function EfficiencyChart({ data, userData, foodDatabase }) {
   const chartRef = useRef(null);
   const [processedData, setProcessedData] = useState([]);
@@ -561,7 +519,6 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
   useEffect(() => {
     if (!data || data.length === 0) return;
     
-    // FIXED: Use proper date comparison without timezone issues
     const today = new Date();
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(today.getDate() - 7);
@@ -578,11 +535,9 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
     
     const updatedData = lastWeekData.map((meal, index) => {
       try {
-        // ALWAYS recalculate efficiency using the enhanced function for consistency
         console.log(`Calculating efficiency for ${meal.name} using enhanced function`);
         const efficiency = calculateFoodEfficiency(meal, userData);
         
-        // Fallback to stored efficiency if calculation fails
         const finalEfficiency = (efficiency && efficiency > 0) ? efficiency : (meal.efficiency || meal.metabolicEfficiency || 80);
         
         console.log(`Final efficiency for ${meal.name}: ${finalEfficiency}`);
@@ -617,13 +572,14 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
   useEffect(() => {
     if (!chartRef.current || !processedData || processedData.length === 0) return;
     
-    d3.select(chartRef.current).selectAll("*").remove();
+    // FIXED: Use named imports instead of getD3()
+    select(chartRef.current).selectAll("*").remove();
     
     const margin = { top: 60, right: 20, bottom: 50, left: 50 };
     const width = 900 - margin.left - margin.right;
     const height = 450 - margin.top - margin.bottom;
     
-    const svg = d3.select(chartRef.current)
+    const svg = select(chartRef.current)
       .append("svg")
       .attr("width", width + margin.left + margin.right)
       .attr("height", height + margin.top + margin.bottom)
@@ -646,7 +602,7 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
       .style("font-style", "italic")
       .text("Optimized for Long COVID energy management");
     
-    const tooltip = d3.select("body")
+    const tooltip = select("body")
       .append("div")
       .attr("class", "chart-tooltip")
       .style("position", "absolute")
@@ -670,38 +626,29 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
       allDatesInRange.push(formattedDate);
     }
     
-    console.log('=== ENHANCED CHART DEBUG ===');
-    console.log('processedData:', processedData);
-    
     const combinedData = [];
-    const groupedByDate = d3.group(processedData, d => d.date);
+    const groupedByDate = group(processedData, d => d.date);
     
-    // Process meal types in the correct order
     const uniqueMealTypes = ['Breakfast', 'Morning Snack', 'Lunch', 'Afternoon Snack', 'Dinner', 'Late Night Snack'];
     
     allDatesInRange.forEach(date => {
       const dateData = groupedByDate.get(date) || [];
       
       if (dateData.length > 0) {
-        const mealsByType = d3.group(dateData, d => d.mealType);
+        const mealsByType = group(dateData, d => d.mealType);
       
-        // Process meal types in the defined order
         uniqueMealTypes.forEach(mealType => {
           const meals = mealsByType.get(mealType);
           if (meals && meals.length > 0) {
-            const totalCalories = d3.sum(meals, d => d.calories);
+            const totalCalories = sum(meals, d => d.calories);
             
-            // Calculate weighted efficiency using the enhanced efficiency values
             const weightedEfficiency = meals.reduce((acc, meal) => {
               const mealEfficiency = meal.efficiency || 0;
               const calorieWeight = totalCalories > 0 ? meal.calories / totalCalories : 0;
-              console.log(`Enhanced: ${meal.name}, efficiency: ${mealEfficiency}, calories: ${meal.calories}, weight: ${calorieWeight}`);
               return acc + (mealEfficiency * calorieWeight);
             }, 0);
             
-            console.log(`Enhanced combined efficiency for ${mealType} on ${date}: ${weightedEfficiency}`);
-            
-            const totalActualEnergy = d3.sum(meals, d => d.actualEnergy || (d.calories * (d.efficiency / 100)));
+            const totalActualEnergy = sum(meals, d => d.actualEnergy || (d.calories * (d.efficiency / 100)));
             const totalWastedEnergy = totalCalories - totalActualEnergy;
             
             combinedData.push({
@@ -714,28 +661,24 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
               actualEnergy: totalActualEnergy,
               wastedEnergy: totalWastedEnergy,
               originalMeals: meals,
-              mealOrder: uniqueMealTypes.indexOf(mealType) // Add explicit order
+              mealOrder: uniqueMealTypes.indexOf(mealType)
             });
           }
         });
       }
     });
     
-    console.log('Enhanced Final combinedData:', combinedData);
-    console.log('=== END ENHANCED CHART DEBUG ===');
-    
-    // Sort chronologically: first by date, then by meal order
     const chronologicalData = [...combinedData].sort((a, b) => {
       if (a.date !== b.date) return a.date.localeCompare(b.date);
       return a.mealOrder - b.mealOrder;
     });
 
-    const xOuter = d3.scaleBand()
+    const xOuter = scaleBand()
       .domain(allDatesInRange)
       .range([0, width])
       .padding(0.2);
     
-    const xInner = d3.scaleBand()
+    const xInner = scaleBand()
       .domain(uniqueMealTypes)
       .range([0, xOuter.bandwidth()])
       .padding(0.1);
@@ -745,19 +688,19 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
       return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
     };
     
-    const maxCalories = d3.max(combinedData, d => d.calories) || 1000;
-    const y = d3.scaleLinear()
+    const maxCalories = max(combinedData, d => d.calories) || 1000;
+    const y = scaleLinear()
       .domain([0, maxCalories])
       .range([height, 0]);
 
-    const yEff = d3.scaleLinear()
+    const yEff = scaleLinear()
       .domain([0, 100])
       .range([height, 0]);
 
     // Create axes
     svg.append("g")
       .attr("transform", `translate(0,${height})`)
-      .call(d3.axisBottom(xOuter).tickFormat(formatDate))
+      .call(axisBottom(xOuter).tickFormat(formatDate))
       .selectAll("text")
       .style("text-anchor", "end")
       .attr("dx", "-.8em")
@@ -765,7 +708,7 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
       .attr("transform", "rotate(-45)");
 
     svg.append("g")
-      .call(d3.axisLeft(y))
+      .call(axisLeft(y))
       .append("text")
       .attr("transform", "rotate(-90)")
       .attr("y", -50)
@@ -776,7 +719,7 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
 
     svg.append("g")
       .attr("transform", `translate(${width}, 0)`)
-      .call(d3.axisRight(yEff))
+      .call(axisRight(yEff))
       .append("text")
       .attr("transform", "rotate(-90)")
       .attr("y", 50)
@@ -785,15 +728,13 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
       .style("fill", "#000")
       .text("Enhanced Efficiency (%)");
 
-    // Color scheme for meal types
     const mealColors = {
-   "Breakfast": "#DC2626",        // Red - easily distinguishable
-  "Morning Snack": "#EA580C",    // Red-Orange - clear variation
-  "Lunch": "#16A34A",            // Green - strong contrast from red
-  "Afternoon Snack": "#0891B2",  // Blue - distinct from green
-  "Dinner": "#7C3AED",           // Purple - clear from blue
-  "Late Night Snack": "#BE185D"  // Pink - distinct endpoint
-    
+      "Breakfast": "#DC2626",
+      "Morning Snack": "#EA580C",
+      "Lunch": "#16A34A",
+      "Afternoon Snack": "#0891B2",
+      "Dinner": "#7C3AED",
+      "Late Night Snack": "#BE185D"
     };
 
     // Add stacked bars
@@ -814,7 +755,7 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
         .attr("stroke", "#333")
         .attr("stroke-width", 1)
         .on("mouseover", function(event) {
-          d3.select(this).attr("opacity", 0.7);
+          select(this).attr("opacity", 0.7);
           tooltip
             .style("visibility", "visible")
             .html(`
@@ -834,7 +775,7 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
             .style("top", `${event.pageY - 10}px`);
         })
         .on("mouseout", function() {
-          d3.select(this).attr("opacity", 0.9);
+          select(this).attr("opacity", 0.9);
           tooltip.style("visibility", "hidden");
         });
       
@@ -853,7 +794,6 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
     });
 
     if (chronologicalData.length > 0) {
-      // Calculate x positions for the line based on the actual bar positions
       const lineData = chronologicalData.map((meal, index) => {
         const barX = xOuter(meal.date) + xInner(meal.mealType);
         const barWidth = xInner.bandwidth();
@@ -866,14 +806,13 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
         };
       });
 
-      // Sort lineData by x position to ensure left-to-right flow
       const sortedLineData = [...lineData].sort((a, b) => a.xPos - b.xPos);
       
-      const lineGenerator = d3.line()
+      const lineGenerator = line()
         .x(d => d.xPos)
         .y(d => yEff(d.efficiency))
         .defined(d => d.efficiency != null && !isNaN(d.efficiency))
-        .curve(d3.curveMonotoneX);
+        .curve(curveMonotoneX);
       
       svg.append("path")
         .datum(sortedLineData)
@@ -882,7 +821,6 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
         .attr("stroke-width", 3)
         .attr("d", lineGenerator);
       
-      // Add efficiency points
       svg.selectAll(".efficiency-point")
         .data(sortedLineData)
         .enter()
@@ -895,7 +833,7 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
         .attr("stroke", "#333")
         .attr("stroke-width", 1)
         .on("mouseover", function(event, d) {
-          d3.select(this).attr("r", 8);
+          select(this).attr("r", 8);
           tooltip
             .style("visibility", "visible")
             .html(`
@@ -908,7 +846,7 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
             .style("top", `${event.pageY - 10}px`);
         })
         .on("mouseout", function() {
-          d3.select(this).attr("r", 5);
+          select(this).attr("r", 5);
           tooltip.style("visibility", "hidden");
         });
     }
@@ -990,7 +928,7 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
       .text(d => d.type);
 
     return () => {
-      d3.select(".chart-tooltip").remove();
+      select(".chart-tooltip").remove();
     };
   }, [chartRef, processedData, userData]);
 
@@ -1015,7 +953,6 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
         flexShrink: 0
       }}></div>
       
-      {/* Description section - now separate and guaranteed to be visible */}
       <div style={{ 
         marginTop: '40px', 
         padding: '25px', 
@@ -1080,7 +1017,7 @@ const baseRDAData10 = {
     description: "Antioxidant that supports immune function and collagen production"
   },
   vitamin_d: {
-    value: 15, // Changed from 600 UI to 15 mcg
+    value: 15,
     unit: 'mcg',
     femaleAdjust: 1.0,
     description: "Crucial for calcium absorption and bone health"
@@ -1160,92 +1097,83 @@ const baseRDAData10 = {
   vitamin_b3: {
     value: 16,
     unit: 'mg',
-    femaleAdjust: 0.875, // 14mg / 16mg = 0.875 for correct female adjustment
+    femaleAdjust: 0.875,
     description: "Helps convert food into energy"
   }
 };
 
+// Rest of the components with fixed D3 imports...
+// [Continue with MicronutrientChart, getChartData, and AnalysisTab functions using named imports]
+
 const BulletChart = ({ data, maxPercent }) => {
-const actualWidth = Math.min(100, (data.rawValue / data.rda) * 100);
-const displayPercentage = Math.round((data.rawValue / data.rda) * 100);
-const optimalWidth = Math.min(100, 100);
+  const actualWidth = Math.min(100, (data.rawValue / data.rda) * 100);
+  const displayPercentage = Math.round((data.rawValue / data.rda) * 100);
+  const optimalWidth = Math.min(100, 100);
 
-// Debug: Log the actual data being passed to BulletChart
-console.log(`BulletChart Debug - ${data.name}:`, {
-  storedValue: data.value,
-  rawValue: data.rawValue,
-  rda: data.rda,
-  calculatedPercentage: (data.rawValue / data.rda) * 100,
-  displayPercentage: displayPercentage,
-  actualWidth: actualWidth,
-  shouldBeOptimal: data.value >= 100 || displayPercentage >= 100
-});
+  const getColor = (percent) => {
+    if (percent >= 100) return "#4CAF50";
+    if (percent >= 70) return "#8BC34A";
+    if (percent >= 50) return "#FFC107";
+    if (percent >= 30) return "#FF9800";
+    return "#F44336";
+  };
 
-const getColor = (percent) => {
-  if (percent >= 100) return "#4CAF50";
-  if (percent >= 70) return "#8BC34A";
-  if (percent >= 50) return "#FFC107";
-  if (percent >= 30) return "#FF9800";
-  return "#F44336";
-};
+  const barColor = getColor(actualWidth);
 
-const barColor = getColor(actualWidth);
-
-return (
-  <div className="bullet-chart">
-    <div className="bullet-chart-header">
-      <div className="bullet-chart-title">
-        <span className="nutrient-name">{data.name}</span>
-        {data.isAdjusted && (
-          <span className="adjusted-badge">
-            Adjusted
+  return (
+    <div className="bullet-chart">
+      <div className="bullet-chart-header">
+        <div className="bullet-chart-title">
+          <span className="nutrient-name">{data.name}</span>
+          {data.isAdjusted && (
+            <span className="adjusted-badge">
+              Adjusted
+            </span>
+          )}
+        </div>
+        <div className="bullet-chart-values">
+          {data.rawValue.toFixed(2)} / {data.rda} {data.unit}
+          <span className="bullet-chart-percentage" style={{ color: barColor }}>
+            ({displayPercentage}%)
           </span>
-        )}
+        </div>
       </div>
-      <div className="bullet-chart-values">
-        {data.rawValue.toFixed(2)} / {data.rda} {data.unit}
-        <span className="bullet-chart-percentage" style={{ color: barColor }}>
-          ({displayPercentage}%)
-        </span>
+      
+      <div className="bullet-chart-track">
+        <div 
+          className="threshold-marker"
+          style={{ left: '70%' }}
+        ></div>
+        
+        <div 
+          className="actual-value-bar"
+          style={{ 
+            width: `${actualWidth}%`, 
+            backgroundColor: barColor 
+          }}
+        ></div>
+        
+        <div 
+          className="target-line"
+          style={{ left: `${optimalWidth}%` }}
+        ></div>
       </div>
     </div>
-    
-    <div className="bullet-chart-track">
-      <div 
-        className="threshold-marker"
-        style={{ left: '70%' }}
-      ></div>
-      
-      <div 
-        className="actual-value-bar"
-        style={{ 
-          width: `${actualWidth}%`, 
-          backgroundColor: barColor 
-        }}
-      ></div>
-      
-      <div 
-        className="target-line"
-        style={{ left: `${optimalWidth}%` }}
-      ></div>
-    </div>
-  </div>
-);
+  );
 };
+
+
 
 function MicronutrientChart({ data, userData }) {
   const [userInfo, setUserInfo] = useState(userData || {});
   const [chartData, setChartData] = useState([]);
   const [allChartData, setAllChartData] = useState([]);
-  // FIXED: Use baseRDAData10 from the global scope for ensureCompleteNutrientData
   const [nutrientIntake] = useState(data && Object.keys(data).length > 0 ? ensureCompleteNutrientData(data, baseRDAData10) : {});
   const [, setPersonalizedRDA] = useState({});
-  // eslint-disable-next-line no-unused-vars
   const [displayMode, setDisplayMode] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  // Helper function to get severity factor
   const getSeverityFactor = useCallback((severity) => {
     switch (severity?.toLowerCase()) {
       case 'mild': return 1.1;
@@ -1256,35 +1184,6 @@ function MicronutrientChart({ data, userData }) {
     }
   }, []);
 
-  // Helper function to standardize units for comparison
-  // eslint-disable-next-line no-unused-vars
-  const standardizeUnitValue = useCallback((value, fromUnit, toUnit) => {
-    if (fromUnit === toUnit) return value;
-
-    if (fromUnit === 'g' && toUnit === 'mg') return value * 1000;
-    if (fromUnit === 'mg' && toUnit === 'mcg') return value * 1000;
-    if (fromUnit === 'mcg' && toUnit === 'mg') return value * 0.001;
-    if (fromUnit === 'mg' && toUnit === 'g') return value * 0.001;
-
-    console.warn(`Unit conversion from ${fromUnit} to ${toUnit} not defined for value ${value}`);
-    return value;
-  }, []);
-
-  // Helper function to convert from IU units
-  // eslint-disable-next-line no-unused-vars
-  const convertFromIU = useCallback((nutrient, value, inputUnit) => {
-    if (inputUnit?.toUpperCase() !== 'IU') return value;
-
-    const conversionFactors = {
-      vitamin_a: 0.3,     // 1 IU = ~0.3 mcg RAE (approximation)
-      vitamin_d: 0.025,   // 1 IU = 0.025 mcg (40 IU = 1 mcg)
-      vitamin_e: 0.67     // 1 IU = 0.67 mg alpha-tocopherol
-    };
-
-    return value * (conversionFactors[nutrient] || 1);
-  }, []);
-
-  // FIXED: Helper function to process nutrient data into chart format
   const processNutrientData = useCallback((intakeData, rdaData) => {
     console.log('=== FIXED processNutrientData ===');
     console.log('Processing', Object.keys(rdaData).length, 'nutrients');
@@ -1296,7 +1195,6 @@ function MicronutrientChart({ data, userData }) {
       
       const rdaInfo = rdaData[nutrientKey];
       
-      // Validate RDA info
       if (!rdaInfo || rdaInfo.value === undefined || !rdaInfo.unit) {
         console.warn(`Skipping ${nutrientKey}: Invalid RDA info`, rdaInfo);
         continue;
@@ -1309,49 +1207,39 @@ function MicronutrientChart({ data, userData }) {
         intakeValue = parseFloat(intakeDetails.value) || 0;
       }
       
-      // Calculate percentage of RDA
       const percentOfRDA = rdaInfo.value > 0 ? (intakeValue / rdaInfo.value) * 100 : 0;
       
-      // FIXED: Validate percentage is reasonable
       if (percentOfRDA > 10000) {
-        console.warn(`⚠️ Extremely high percentage for ${nutrientKey}: ${percentOfRDA}% - possible unit error`);
+        console.warn(`Extremely high percentage for ${nutrientKey}: ${percentOfRDA}% - possible unit error`);
       }
       
-      // Format name and determine category
       const formattedName = nutrientKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       const category = nutrientKey.includes('vitamin') ? 'vitamins' : 'minerals';
 
       const processedNutrient = {
         key: nutrientKey,
         name: formattedName,
-        value: Math.round(percentOfRDA), // Round to avoid floating point precision issues
+        value: Math.round(percentOfRDA),
         rawValue: intakeValue,
         unit: rdaInfo.unit,
         rda: rdaInfo.value,
         rdaUnit: rdaInfo.unit,
         isAdjustedRDA: rdaInfo.isAdjusted || false,
-        percentOfRDA: Math.round(percentOfRDA), // Keep both for compatibility
+        percentOfRDA: Math.round(percentOfRDA),
         category: category,
       };
       
-      console.log(`✅ ${formattedName}: ${intakeValue}${rdaInfo.unit} / ${rdaInfo.value}${rdaInfo.unit} = ${percentOfRDA.toFixed(1)}%`);
+      console.log(`${formattedName}: ${intakeValue}${rdaInfo.unit} / ${rdaInfo.value}${rdaInfo.unit} = ${percentOfRDA.toFixed(1)}%`);
       
       processedNutrients.push(processedNutrient);
     }
 
-    // Sort by percentage (low to high for easier identification of deficiencies)
     const sortedNutrients = processedNutrients.sort((a, b) => a.percentOfRDA - b.percentOfRDA);
     
     console.log('=== PROCESSING SUMMARY ===');
     console.log('Total nutrients processed:', sortedNutrients.length);
     console.log('Deficient (<70%):', sortedNutrients.filter(n => n.value < 70).length);
     console.log('Optimal (≥100%):', sortedNutrients.filter(n => n.value >= 100).length);
-    
-    // Debug: Show nutrients that are >= 100%
-    const optimalNutrients = sortedNutrients.filter(n => n.value >= 100);
-    console.log('Optimal nutrients:', optimalNutrients.map(n => `${n.name}: ${n.value}%`));
-    
-    console.log('=== END FIXED processNutrientData ===\n');
     
     return sortedNutrients;
   }, []);
@@ -1362,31 +1250,16 @@ function MicronutrientChart({ data, userData }) {
     if (selectedCategory !== 'all') {
       filteredData = filteredData.filter(item => item.category === selectedCategory);
     }
-
-    console.log('=== FILTER DEBUG ===');
-    console.log('Before filtering:', filteredData.length, 'items');
-    console.log('Display mode:', displayMode);
-    console.log('Sample data values:', filteredData.slice(0, 3).map(item => `${item.name}: ${item.value}%`));
     
     if (displayMode === 'deficient') {
       filteredData = filteredData.filter(item => item.value < 70);
       filteredData.sort((a, b) => a.value - b.value);
-      console.log('After deficient filter:', filteredData.length, 'items');
     } else if (displayMode === 'optimal') {
-      const beforeOptimal = filteredData.length;
-      filteredData = filteredData.filter(item => {
-        console.log(`Checking ${item.name}: ${item.value}% >= 100? ${item.value >= 100}`);
-        return item.value >= 100;
-      });
-      console.log(`Optimal filter: ${beforeOptimal} → ${filteredData.length} items`);
-      console.log('Optimal items:', filteredData.map(n => `${n.name}: ${n.value}%`));
+      filteredData = filteredData.filter(item => item.value >= 100);
       filteredData.sort((a, b) => b.value - a.value);
     } else {
       filteredData.sort((a, b) => a.value - b.value);
     }
-
-    console.log('Final filtered data:', filteredData.length, 'items');
-    console.log('=== END FILTER DEBUG ===');
 
     setChartData(filteredData);
   }, [displayMode, selectedCategory]);
@@ -1401,20 +1274,18 @@ function MicronutrientChart({ data, userData }) {
 
     Object.keys(personalRDA).forEach(nutrient => {
       if (!personalRDA[nutrient] || typeof personalRDA[nutrient].value !== 'number') {
-        console.error(`Invalid data structure for ${nutrient} in baseRDAData_ or copy:`, personalRDA[nutrient]);
+        console.error(`Invalid data structure for ${nutrient}`);
         personalRDA[nutrient] = { value: 0, unit: personalRDA[nutrient]?.unit || 'mg', isAdjusted: false };
         return;
       }
 
       let adjustedValue = personalRDA[nutrient].value;
 
-      // Apply gender adjustment
       if (userData?.gender && userData.gender.toLowerCase() === 'female') {
         const femaleAdjust = personalRDA[nutrient].femaleAdjust || 1.0;
         adjustedValue *= femaleAdjust;
       }
 
-      // Apply age adjustments
       if (userData?.age) {
         let ageMultiplier = 1.0;
         if (userData.age >= 70) {
@@ -1434,7 +1305,6 @@ function MicronutrientChart({ data, userData }) {
         }
       }
 
-      // Apply COVID severity adjustments
       const severity = userData?.covid_severity || userData?.longCovidSeverity;
       const hasCovidCondition = severity && severity !== 'None' && severity !== null && severity !== undefined;
 
@@ -1453,7 +1323,6 @@ function MicronutrientChart({ data, userData }) {
         }
       }
 
-      // Final safety check
       if (isNaN(adjustedValue) || !isFinite(adjustedValue) || adjustedValue <= 0) {
         console.error(`Invalid final value for ${nutrient}: ${adjustedValue}, resetting to base`);
         adjustedValue = personalRDA[nutrient].value;
@@ -1471,7 +1340,6 @@ function MicronutrientChart({ data, userData }) {
     return personalRDA;
   }, [getSeverityFactor]);
 
-  // Get nutrient status label and color
   const getNutrientStatus = (percentValue) => {
     if (percentValue >= 100) return { label: "Optimal", color: "#4CAF50" };
     if (percentValue >= 70) return { label: "Good", color: "#8BC34A" };
@@ -1480,7 +1348,6 @@ function MicronutrientChart({ data, userData }) {
     return { label: "Very Low", color: "#F44336" };
   };
 
-  // Helper function to provide nutrient-specific info
   const getNutrientInfo = (nutrientName) => {
     const nutrientInfoMap = {};
     for (const key in baseRDAData10) {
@@ -1514,19 +1381,7 @@ function MicronutrientChart({ data, userData }) {
 
         const processedAllData = processNutrientData(nutrientIntake, calculatedRDA);
         
-        // Debug: Log the processed data before setting state
-        console.log('=== PROCESSED DATA DEBUG ===');
-        console.log('Total processed nutrients:', processedAllData.length);
-        processedAllData.forEach(nutrient => {
-          console.log(`${nutrient.name}: value=${nutrient.value}%, rawValue=${nutrient.rawValue}, rda=${nutrient.rda}`);
-        });
-        
-        const optimalCount = processedAllData.filter(n => n.value >= 100).length;
-        console.log('Optimal count (≥100%):', optimalCount);
-        console.log('=== END PROCESSED DATA DEBUG ===');
-        
         setAllChartData(processedAllData);
-
         applyFilters(processedAllData);
 
       } catch (error) {
@@ -1616,7 +1471,6 @@ function MicronutrientChart({ data, userData }) {
 
   const deficientCount = allChartData.filter(item => item.value < 70).length;
 
-  // Show empty state if no user data AND no meal data
   if ((!data || Object.keys(data).length === 0) && (!userData || Object.keys(userData).length === 0)) {
     return (
       <div className="micronutrient-chart-container">
@@ -1636,7 +1490,6 @@ function MicronutrientChart({ data, userData }) {
     );
   }
 
-  // Show empty state if user data exists but no meal data, or no processed data at all
   if (!data || Object.keys(data).length === 0 || allChartData.length === 0) {
     return (
       <div className="micronutrient-chart-container">
@@ -1895,7 +1748,6 @@ function MicronutrientChart({ data, userData }) {
   );
 }
 
-// FIXED: Enhanced getChartData function with better micronutrient processing
 function getChartData(foodLog, userProfile) {
   if (!foodLog || !Array.isArray(foodLog)) {
     return { macroSums: {}, microSums: {}, efficiencyData: [] };
@@ -1905,22 +1757,16 @@ function getChartData(foodLog, userProfile) {
     return { macroSums: {}, microSums: {}, efficiencyData: [] };
   }
 
-  //const lastDate = foodLog[0].date;
   const today = formatDateForComparison(new Date());
-  //const lastDayEntries = foodLog.filter(e => e.date === lastDate);
   const todayEntries = foodLog.filter(e => e.date === today);
   
   console.log('=== FIXED getChartData DEBUG ===');
-  //console.log('Processing', lastDayEntries.length, 'entries for date:', lastDate);
-    // ADD THIS CHECK:
-    if (todayEntries.length === 0) {
-      return { macroSums: {}, microSums: {}, efficiencyData: foodLog };
-    }
-  // Calculate macro sums with validation
-  //const macroSums = lastDayEntries.reduce((acc, e) => {
+  
+  if (todayEntries.length === 0) {
+    return { macroSums: {}, microSums: {}, efficiencyData: foodLog };
+  }
 
-    const macroSums = todayEntries.reduce((acc, e) => {
-
+  const macroSums = todayEntries.reduce((acc, e) => {
     const protein = parseFloat(e.protein) || 0;
     const carbs = parseFloat(e.carbs) || 0;
     const fat = parseFloat(e.fat) || 0;
@@ -1931,39 +1777,35 @@ function getChartData(foodLog, userProfile) {
     acc.fat = (acc.fat || 0) + fat;
     acc.calories = (acc.calories || 0) + calories;
     
-    console.log(`✅ Entry: ${e.name} - P:${protein}g C:${carbs}g F:${fat}g Cal:${calories}`);
+    console.log(`Entry: ${e.name} - P:${protein}g C:${carbs}g F:${fat}g Cal:${calories}`);
     return acc;
   }, {});
   
-  // FIXED: Better micronutrient accumulation with unit validation
   const microSums = {};
   
-  //lastDayEntries.forEach((entry, entryIndex) => {
-    todayEntries.forEach((entry, entryIndex) => {
+  todayEntries.forEach((entry, entryIndex) => {
     console.log(`\n--- Processing Entry ${entryIndex}: ${entry.name} ---`);
     
     if (!entry.micronutrients) {
-      console.log(`⚠️ No micronutrients data for ${entry.name}`);
+      console.log(`No micronutrients data for ${entry.name}`);
       return;
     }
     
     Object.entries(entry.micronutrients).forEach(([nutrientKey, nutrientValue]) => {
-      // Skip macro nutrients that shouldn't be in micronutrients
       const macroNutrients = ['protein', 'carbs', 'fat', 'calories', 'name', 'unit'];
       if (macroNutrients.includes(nutrientKey.toLowerCase())) {
         return;
       }
       
       let valueToAdd = 0;
-      let unit = 'mg'; // default unit
+      let unit = 'mg';
       
-      // Handle different value formats
       if (typeof nutrientValue === 'object' && nutrientValue !== null) {
         if (nutrientValue.value !== undefined) {
           valueToAdd = parseFloat(nutrientValue.value) || 0;
           unit = nutrientValue.unit || 'mg';
         } else {
-          console.warn(`❌ Object format not recognized for ${nutrientKey}:`, nutrientValue);
+          console.warn(`Object format not recognized for ${nutrientKey}:`, nutrientValue);
           return;
         }
       } else if (typeof nutrientValue === 'number') {
@@ -1971,50 +1813,44 @@ function getChartData(foodLog, userProfile) {
       } else if (typeof nutrientValue === 'string') {
         valueToAdd = parseFloat(nutrientValue) || 0;
       } else {
-        console.warn(`❌ Unrecognized value format for ${nutrientKey}:`, nutrientValue);
+        console.warn(`Unrecognized value format for ${nutrientKey}:`, nutrientValue);
         return;
       }
       
-      // FIXED: Unit standardization for common problem nutrients
       if (nutrientKey === 'zinc' || nutrientKey === 'selenium' || nutrientKey === 'copper') {
-        // These are often given in mcg but should be in mg for zinc/copper
         if (unit === 'mcg' || unit === 'μg') {
           if (nutrientKey === 'zinc' || nutrientKey === 'copper') {
-            valueToAdd = valueToAdd / 1000; // Convert mcg to mg
+            valueToAdd = valueToAdd / 1000;
             unit = 'mg';
-            console.log(`🔄 Converted ${nutrientKey} from mcg to mg: ${valueToAdd}`);
+            console.log(`Converted ${nutrientKey} from mcg to mg: ${valueToAdd}`);
           }
-          // Selenium should stay in mcg, so don't convert
         }
       }
       
-      // FIXED: Validate the value is reasonable
       const reasonableMaxValues = {
-        'zinc': 50,           // mg
-        'selenium': 400,      // mcg
-        'copper': 10,         // mg
-        'iron': 100,          // mg
-        'vitamin_c': 2000,    // mg
-        'vitamin_d': 100,     // mcg
-        'calcium': 3000,      // mg
-        'magnesium': 1000     // mg
+        'zinc': 50,
+        'selenium': 400,
+        'copper': 10,
+        'iron': 100,
+        'vitamin_c': 2000,
+        'vitamin_d': 100,
+        'calcium': 3000,
+        'magnesium': 1000
       };
       
       const maxValue = reasonableMaxValues[nutrientKey] || 10000;
       if (valueToAdd < 0 || valueToAdd > maxValue) {
-        console.warn(`⚠️ Suspicious ${nutrientKey} value: ${valueToAdd} ${unit} (max expected: ${maxValue}) - using cautiously`);
-        // Don't skip entirely, but cap the value
+        console.warn(`Suspicious ${nutrientKey} value: ${valueToAdd} ${unit} (max expected: ${maxValue}) - using cautiously`);
         valueToAdd = Math.min(valueToAdd, maxValue);
       }
       
-      // Initialize or add to sum
       if (!microSums[nutrientKey]) {
         microSums[nutrientKey] = { value: 0, unit: unit };
       }
       
       microSums[nutrientKey].value += valueToAdd;
       
-      console.log(`➕ ${nutrientKey}: +${valueToAdd} ${unit} → Total: ${microSums[nutrientKey].value} ${unit}`);
+      console.log(`${nutrientKey}: +${valueToAdd} ${unit} → Total: ${microSums[nutrientKey].value} ${unit}`);
     });
   });
   
@@ -2022,19 +1858,18 @@ function getChartData(foodLog, userProfile) {
   console.log('Macros:', macroSums);
   console.log('Micros:', microSums);
   
-  // FIXED: Validate final micronutrient totals
   Object.entries(microSums).forEach(([nutrient, data]) => {
     const warningThresholds = {
-      'zinc': 100,        // mg - warning if > 100mg
-      'selenium': 1000,   // mcg - warning if > 1000mcg  
-      'copper': 50,       // mg - warning if > 50mg
-      'iron': 200,        // mg - warning if > 200mg
-      'vitamin_c': 5000,  // mg - warning if > 5000mg
+      'zinc': 100,
+      'selenium': 1000,
+      'copper': 50,
+      'iron': 200,
+      'vitamin_c': 5000,
     };
     
     const threshold = warningThresholds[nutrient] || 1000;
     if (data.value > threshold) {
-      console.warn(`⚠️ Unusually high ${nutrient}: ${data.value} ${data.unit} (threshold: ${threshold})`);
+      console.warn(`Unusually high ${nutrient}: ${data.value} ${data.unit} (threshold: ${threshold})`);
     }
   });
   
@@ -2048,73 +1883,72 @@ function getChartData(foodLog, userProfile) {
 }
 
 function AnalysisTab({ foodLog, userProfile }) {
-if (!foodLog || !Array.isArray(foodLog)) {
+  if (!foodLog || !Array.isArray(foodLog)) {
+    return (
+      <div className="analysis-error">
+        <h3>Data Error</h3>
+        <p>Unable to load food log data. Please try refreshing the page.</p>
+      </div>
+    );
+  }
+
+  if (!userProfile) {
+    return (
+      <div className="analysis-error">
+        <h3>Profile Error</h3>
+        <p>User profile data is missing. Please check your account settings.</p>
+      </div>
+    );
+  }
+
+  const today = formatDateForComparison(new Date());
+  const analysisDate = foodLog.length > 0 ? foodLog[0].date : today;
+  const todayMeals = foodLog.filter(entry => entry.date === today);
+  const { macroSums, microSums, efficiencyData } = getChartData(foodLog, userProfile);
+
   return (
-    <div className="analysis-error">
-      <h3>Data Error</h3>
-      <p>Unable to load food log data. Please try refreshing the page.</p>
+    <div className="food-analysis-section">
+      <div className="analysis-header">
+        <h3>📊 Nutritional Analysis Dashboard</h3>
+        <p className="analysis-date">Analysis for {analysisDate}</p>
+        <div className="analysis-summary">
+          <span className="summary-stat">
+            <strong>{todayMeals.length}</strong> meals logged today ({today})
+          </span>
+        </div>
+      </div>
+
+      <div className="charts-container">
+        
+        <div className="chart-wrapper">
+          <div className="chart-header">
+            <h4>🎯 Macronutrient Balance</h4>
+            <p className="chart-description">Your protein, carbohydrate, and fat intake compared to personalized recommendations</p>
+          </div>
+          <MacronutrientChart userData={userProfile} userIntake={macroSums} />
+        </div>
+        
+        <div className="chart-wrapper">
+          <div className="chart-header">
+            <h4>💊 Micronutrient Status</h4>
+            <p className="chart-description">Essential vitamins and minerals as percentage of recommended daily amounts</p>
+          </div>
+          <MicronutrientChart data={microSums} userData={userProfile} />
+        </div>
+        
+        <div className="chart-wrapper">
+          <div className="chart-header">
+            <h4>⚡ Metabolic Efficiency</h4>
+            <p className="chart-description">How effectively your body converts food calories into usable energy</p>
+          </div>
+          <div style={{ width: '100%', overflow: 'visible' }}>
+            <EfficiencyChart data={efficiencyData} userData={userProfile} />
+          </div>
+        </div>
+
+      </div>
     </div>
   );
-}
-
-if (!userProfile) {
-  return (
-    <div className="analysis-error">
-      <h3>Profile Error</h3>
-      <p>User profile data is missing. Please check your account settings.</p>
-    </div>
-  );
-}
-
-// FIXED: Use timezone-safe date comparison
-const today = formatDateForComparison(new Date());
-const analysisDate = foodLog.length > 0 ? foodLog[0].date : today;
-const todayMeals = foodLog.filter(entry => entry.date === today);
-const { macroSums, microSums, efficiencyData } = getChartData(foodLog, userProfile);
-
-return (
-  <div className="food-analysis-section">
-    <div className="analysis-header">
-      <h3>📊 Nutritional Analysis Dashboard</h3>
-      <p className="analysis-date">Analysis for {analysisDate}</p>
-      <div className="analysis-summary">
-        <span className="summary-stat">
-          <strong>{todayMeals.length}</strong> meals logged today ({today})
-        </span>
-      </div>
-    </div>
-
-    <div className="charts-container">
-      
-      <div className="chart-wrapper">
-        <div className="chart-header">
-          <h4>🍎 Macronutrient Balance</h4>
-          <p className="chart-description">Your protein, carbohydrate, and fat intake compared to personalized recommendations</p>
-        </div>
-        <MacronutrientChart userData={userProfile} userIntake={macroSums} />
-      </div>
-      
-      <div className="chart-wrapper">
-        <div className="chart-header">
-          <h4>💊 Micronutrient Status</h4>
-          <p className="chart-description">Essential vitamins and minerals as percentage of recommended daily amounts</p>
-        </div>
-        <MicronutrientChart data={microSums} userData={userProfile} />
-      </div>
-      
-      <div className="chart-wrapper">
-        <div className="chart-header">
-          <h4>⚡ Metabolic Efficiency</h4>
-          <p className="chart-description">How effectively your body converts food calories into usable energy</p>
-        </div>
-        <div style={{ width: '100%', overflow: 'visible' }}>
-          <EfficiencyChart data={efficiencyData} userData={userProfile} />
-        </div>
-      </div>
-
-    </div>
-  </div>
-);
 }
 
 export { AnalysisTab, MacronutrientChart, MicronutrientChart, EfficiencyChart };

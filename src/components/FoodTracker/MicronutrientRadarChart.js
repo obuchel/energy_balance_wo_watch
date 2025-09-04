@@ -20,9 +20,7 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
     'zinc',
     'potassium',
     'phosphorus',
-    'sodium',
-    'fiber',
-    'sugar'
+    'sodium'
   ];
 
   const micronutrientMapping = {
@@ -31,9 +29,9 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
     'vitamin_e': 'Vitamin E',
     'vitamin_a': 'Vitamin A',
     'vitamin_k': 'Vitamin K',
-    'thiamin': 'B1 (Thiamin)',
-    'riboflavin': 'B2 (Riboflavin)',
-    'niacin': 'B3 (Niacin)',
+    'thiamin': 'B1',
+    'riboflavin': 'B2',
+    'niacin': 'B3',
     'vitamin_b6': 'B6',
     'folate': 'Folate',
     'vitamin_b12': 'B12',
@@ -43,16 +41,16 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
     'phosphorus': 'Phosphorus',
     'potassium': 'Potassium',
     'sodium': 'Sodium',
-    'zinc': 'Zinc',
-    'fiber': 'Fiber',
-    'sugar': 'Sugar'
+    'zinc': 'Zinc'
   };
 
-  // Extract available micronutrients in FIXED order
-  const availableMicronutrients = fixedMicronutrientOrder.filter(key => 
-    micronutrients[key]?.value !== undefined && 
-    micronutrients[key]?.value > 0
-  );
+  // Extract available micronutrients that have meaningful values
+  const availableMicronutrients = fixedMicronutrientOrder.filter(key => {
+    const nutrient = micronutrients[key];
+    return nutrient?.value !== undefined && 
+           parseFloat(nutrient.value) > 0 && 
+           parseFloat(nutrient.value) < 10000; // Filter out unrealistic values
+  });
 
   // If no micronutrients available, show a message
   if (availableMicronutrients.length === 0) {
@@ -72,25 +70,26 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
     );
   }
 
-  // Create radar chart data with FIXED axis positions
-  const chartSize = 420; // Increased from 340
-  //const padding = 60; // Extra padding for labels
+  // Use only the available nutrients for display (dynamic chart)
+  const displayNutrients = availableMicronutrients.slice(0, 8); // Limit to 8 for better visibility
+  
+  const chartSize = 300;
   const centerX = chartSize / 2;
   const centerY = chartSize / 2;
-  const radius = 100;
-  const labelRadius = radius + 50; // Increased from 30 to 50
+  const radius = 80;
+  const labelRadius = radius + 35;
   
-  // Use FIXED number of axes (always 20) for consistent positioning
-  const totalAxes = fixedMicronutrientOrder.length;
+  // Calculate angles for only the nutrients we're displaying
+  const totalAxes = displayNutrients.length;
   const angleStep = (2 * Math.PI) / totalAxes;
 
-  // Calculate max value for scaling
-  const maxValue = Math.max(...availableMicronutrients.map(key => 
+  // Calculate max value for scaling (using only displayed nutrients)
+  const maxValue = Math.max(...displayNutrients.map(key => 
     parseFloat(micronutrients[key]?.value || 0)
   ));
 
-  // Generate ALL axis lines (including empty ones) for consistent layout
-  const allAxisLines = fixedMicronutrientOrder.map((key, index) => {
+  // Generate axis lines only for displayed nutrients
+  const axisLines = displayNutrients.map((key, index) => {
     const angle = index * angleStep - Math.PI / 2; // Start from top
     return {
       x1: centerX,
@@ -100,17 +99,16 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
       label: micronutrientMapping[key],
       labelX: centerX + Math.cos(angle) * labelRadius,
       labelY: centerY + Math.sin(angle) * labelRadius,
-      hasData: availableMicronutrients.includes(key),
-      key: key
+      key: key,
+      angle: angle
     };
   });
 
-  // Generate data points only for nutrients with data, but positioned according to fixed axes
-  const dataPoints = availableMicronutrients.map((key) => {
-    const axisIndex = fixedMicronutrientOrder.indexOf(key);
-    const angle = axisIndex * angleStep - Math.PI / 2;
+  // Generate data points for displayed nutrients
+  const dataPoints = displayNutrients.map((key, index) => {
+    const angle = index * angleStep - Math.PI / 2;
     const value = parseFloat(micronutrients[key]?.value || 0);
-    const normalizedValue = maxValue > 0 ? (value / maxValue) : 0;
+    const normalizedValue = maxValue > 0 ? Math.min(value / maxValue, 1) : 0; // Cap at 100%
     const pointRadius = normalizedValue * radius;
     
     return {
@@ -121,30 +119,26 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
       unit: micronutrients[key]?.unit || 'mg',
       angle: angle,
       normalizedValue: normalizedValue,
-      axisIndex: axisIndex
+      axisIndex: index
     };
   });
 
-  // Create polygon path using ONLY the data points in CORRECT CLOCKWISE ORDER
-  const polygonPath = dataPoints.length > 2 ? 
-    dataPoints
-      .sort((a, b) => a.axisIndex - b.axisIndex) // Sort by axis position for correct polygon order
-      .map((point, index) => 
-        `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`
-      ).join(' ') + ' Z'
-    : dataPoints.length === 2 ?
-    // For only 2 points, just draw a line (no closed polygon)
-    dataPoints
-      .sort((a, b) => a.axisIndex - b.axisIndex)
-      .map((point, index) => 
-        `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`
-      ).join(' ')
-    : ''; // No polygon for 1 or 0 points
+  // Create polygon path - FIXED to handle all cases properly
+  let polygonPath = '';
+  if (dataPoints.length >= 3) {
+    // Create a proper closed polygon for 3+ points
+    polygonPath = dataPoints
+      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+      .join(' ') + ' Z';
+  } else if (dataPoints.length === 2) {
+    // For 2 points, draw a line segment
+    polygonPath = `M ${dataPoints[0].x.toFixed(2)} ${dataPoints[0].y.toFixed(2)} L ${dataPoints[1].x.toFixed(2)} ${dataPoints[1].y.toFixed(2)}`;
+  }
 
   // Generate concentric circles for scale
-  const scaleCircles = [0.2, 0.4, 0.6, 0.8, 1.0].map(scale => ({
+  const scaleCircles = [0.25, 0.5, 0.75, 1.0].map(scale => ({
     r: radius * scale,
-    opacity: scale === 1.0 ? 0.3 : 0.1
+    opacity: scale === 1.0 ? 0.4 : 0.2
   }));
 
   return (
@@ -167,38 +161,39 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
             />
           ))}
           
-          {/* Axis lines - show ALL axes but style differently for data vs no-data */}
-          {allAxisLines.map((line, index) => (
-            <g key={index}>
-              <line
-                x1={line.x1}
-                y1={line.y1}
-                x2={line.x2}
-                y2={line.y2}
-                stroke={line.hasData ? "#ccc" : "#f0f0f0"}
-                strokeWidth="1"
-                opacity={line.hasData ? "0.7" : "0.3"}
-              />
-            </g>
+          {/* Axis lines */}
+          {axisLines.map((line, index) => (
+            <line
+              key={index}
+              x1={line.x1}
+              y1={line.y1}
+              x2={line.x2}
+              y2={line.y2}
+              stroke="#ccc"
+              strokeWidth="1"
+              opacity="0.7"
+            />
           ))}
           
-          {/* Data polygon - only if we have 3+ points for a proper polygon */}
-          {dataPoints.length >= 3 && polygonPath && (
+          {/* Data polygon/line - only render if we have valid path */}
+          {polygonPath && dataPoints.length >= 3 && (
             <path
               d={polygonPath}
-              fill="rgba(54, 162, 235, 0.2)"
+              fill="rgba(54, 162, 235, 0.3)"
               stroke="rgba(54, 162, 235, 0.8)"
               strokeWidth="2"
+              strokeLinejoin="round"
             />
           )}
           
-          {/* For 2 points, draw a line instead of polygon */}
-          {dataPoints.length === 2 && polygonPath && (
+          {/* For 2 points, draw a line with different styling */}
+          {polygonPath && dataPoints.length === 2 && (
             <path
               d={polygonPath}
               fill="none"
               stroke="rgba(54, 162, 235, 0.8)"
-              strokeWidth="2"
+              strokeWidth="3"
+              strokeLinecap="round"
             />
           )}
           
@@ -209,31 +204,27 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
               cx={point.x}
               cy={point.y}
               r="4"
-              fill="rgba(54, 162, 235, 0.8)"
+              fill="rgba(54, 162, 235, 0.9)"
               stroke="white"
               strokeWidth="2"
             />
           ))}
           
-          {/* Labels - show ALL labels but style differently */}
-          {allAxisLines.map((line, index) => {
-            const isRightSide = line.labelX > centerX;
-            const isLeftSide = line.labelX < centerX;
+          {/* Labels with better positioning */}
+          {axisLines.map((line, index) => {
+            const isRightSide = line.labelX > centerX + 10;
+            const isLeftSide = line.labelX < centerX - 10;
             const isTopHalf = line.labelY < centerY;
-            //const isBottomHalf = line.labelY > centerY;
-            const isNearCenter = Math.abs(line.labelX - centerX) < 30;
             
-            // Better text anchoring based on position
             let textAnchor = "middle";
-            if (isRightSide && !isNearCenter) {
+            if (isRightSide) {
               textAnchor = "start";
-            } else if (isLeftSide && !isNearCenter) {
+            } else if (isLeftSide) {
               textAnchor = "end";
             }
             
-            // Better vertical alignment
             let dominantBaseline = "middle";
-            if (isNearCenter) {
+            if (Math.abs(line.labelX - centerX) < 15) {
               dominantBaseline = isTopHalf ? "auto" : "hanging";
             }
             
@@ -245,12 +236,9 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
                 textAnchor={textAnchor}
                 dominantBaseline={dominantBaseline}
                 fontSize="11"
-                fill={line.hasData ? "#666" : "#ccc"}
+                fill="#666"
                 className="radar-label"
-                style={{ 
-                  fontWeight: line.hasData ? 500 : 300,
-                  opacity: line.hasData ? 1 : 0.6
-                }}
+                style={{ fontWeight: 500 }}
               >
                 {line.label}
               </text>
@@ -267,11 +255,19 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
             <div key={index} className="micronutrient-item">
               <span className="nutrient-name">{point.label}:</span>
               <span className="nutrient-value">
-                {point.value.toFixed(1)} {point.unit}
+                {point.value < 1 ? point.value.toFixed(2) : point.value.toFixed(1)} {point.unit}
               </span>
             </div>
           ))}
         </div>
+        
+        {availableMicronutrients.length > displayNutrients.length && (
+          <div className="additional-nutrients">
+            <small>
+              +{availableMicronutrients.length - displayNutrients.length} more nutrients available
+            </small>
+          </div>
+        )}
       </div>
       
       <style jsx>{`
@@ -333,8 +329,9 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
         
         .micronutrient-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
           gap: 8px;
+          margin-bottom: 12px;
         }
         
         .micronutrient-item {
@@ -356,14 +353,16 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
           font-weight: 600;
         }
         
+        .additional-nutrients {
+          text-align: center;
+          padding: 8px;
+          color: #6c757d;
+          font-style: italic;
+        }
+        
         @media (max-width: 768px) {
           .micronutrient-radar-container {
             padding: 16px;
-          }
-          
-          .radar-chart {
-            width: 380px;
-            height: 380px;
           }
           
           .micronutrient-grid {
