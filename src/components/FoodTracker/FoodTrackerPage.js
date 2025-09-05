@@ -118,7 +118,7 @@ const formatDateHeader = (dateString) => {
 
 // MAIN COMPONENT CONSTANTS
 const mealTypes = ['Breakfast', 'Morning Snack', 'Lunch', 'Afternoon Snack', 'Dinner', 'Late Night Snack'];
-const TABS = ['Add Food', 'Food Journal', 'Analysis','Vitamin Trends'];
+const TABS = ['Add Food', 'Food Journal', 'Analysis','Trends'];
 const ENTRIES_PER_PAGE = 20;
 
 function FoodTrackerPage() {
@@ -1197,7 +1197,7 @@ function FoodTrackerPage() {
             userProfile={userProfile} 
           />
         )}
-        {tab === 'Vitamin Trends' && (
+        {tab === 'Trends' && (
   <VitaminTimeSeriesTab 
     foodLog={foodLog}
     userProfile={userProfile}

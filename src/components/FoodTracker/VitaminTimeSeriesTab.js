@@ -249,7 +249,7 @@ const VitaminTimeSeriesTab = ({ foodLog = [], userProfile = {} }) => {
     <div className="vitamin-timeseries-tab" style={{ padding: '20px' }}>
       <div style={{ marginBottom: '24px' }}>
         <h3 style={{ marginBottom: '16px', color: '#2c3e50' }}>
-          📈 Vitamin & Mineral Trends Over Time
+          📈 Nutrient Trends Over Time
         </h3>
         
         {/* Controls */}
