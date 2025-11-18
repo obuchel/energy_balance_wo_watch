@@ -367,40 +367,19 @@ function SignInPage() {
           <div className="about-section">
             <h3>About Energy Balance</h3>
             <p>
-              Energy Balance is a comprehensive health management system designed to help individuals 
-              recovering from Long COVID. Our platform helps you track and manage your energy levels, 
-              physical activity, and overall well-being through seamless integration with your wearable devices.
+            Energy Balance is a comprehensive health management system designed to help 
+individuals recovering from Long COVID. Our platform empowers you to track and 
+understand your energy patterns through daily symptom monitoring and meal logging.
+
             </p>
             <p>
-              By monitoring your daily activities and energy expenditure, we help you maintain a healthy 
-              balance and prevent post-exertional malaise (PEM) episodes.
-            </p>
-            
-            <div className="supported-devices">
-              <h4>Supported Devices</h4>
-              <div className="device-icons">
-                <div className="device-item">
-                  <span className="device-icon">⌚</span>
-                  <span>Apple Watch</span>
-                </div>
-                <div className="device-item">
-                  <span className="device-icon">📱</span>
-                  <span>Fitbit</span>
-                </div>
-                <div className="device-item">
-                  <span className="device-icon">⌚</span>
-                  <span>Garmin</span>
-                </div>
-                <div className="device-item">
-                  <span className="device-icon">📱</span>
-                  <span>Samsung Health</span>
-                </div>
-                <div className="device-item">
-                  <span className="device-icon">📊</span>
-                  <span>Manual Entry</span>
-                </div>
-              </div>
-            </div>
+              
+          
+            By tracking your symptoms and meals consistently, you'll start to recognize patterns 
+in your condition. This awareness helps you identify triggers, understand your limits, 
+and make informed decisions about your daily activities to better manage your energy 
+and reduce symptom flares.
+</p>
           </div>
           
           {/* Debug info in development */}

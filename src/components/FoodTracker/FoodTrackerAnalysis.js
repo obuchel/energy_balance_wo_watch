@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './MicronutrientChart.css';
 import './FoodTrackerAnalysis.css';
@@ -24,8 +22,6 @@ import {
   curveMonotoneX
 } from 'd3';
 
-// REMOVED: The problematic wildcard import and getD3() function
-
 // FIXED: Utility functions to handle dates without timezone issues
 const parseDate = (dateString) => {
   const parts = dateString.split('-');
@@ -44,6 +40,81 @@ const isSameOrAfter = (dateString1, dateString2) => {
   const date2 = parseDate(dateString2);
   return date1 >= date2;
 };
+
+// FIXED: Enhanced nutrient key mapping function
+function normalizeNutrientKey(key) {
+  const keyMappings = {
+    // B-vitamins
+    'b1': 'vitamin_b1',
+    'B1': 'vitamin_b1',
+    'thiamine': 'vitamin_b1',
+    'thiamin': 'vitamin_b1',
+    
+    'b2': 'vitamin_b2',
+    'B2': 'vitamin_b2',
+    'riboflavin': 'vitamin_b2',
+    
+    'b3': 'vitamin_b3',
+    'B3': 'vitamin_b3',
+    'niacin': 'vitamin_b3',
+    
+    'b6': 'vitamin_b6',
+    'B6': 'vitamin_b6',
+    'pyridoxine': 'vitamin_b6',
+    
+    'b12': 'vitamin_b12',
+    'B12': 'vitamin_b12',
+    'cobalamin': 'vitamin_b12',
+    
+    // Other vitamins
+    'vit_a': 'vitamin_a',
+    'vitA': 'vitamin_a',
+    'retinol': 'vitamin_a',
+    
+    'vit_c': 'vitamin_c',
+    'vitC': 'vitamin_c',
+    'ascorbic_acid': 'vitamin_c',
+    
+    'vit_d': 'vitamin_d',
+    'vitD': 'vitamin_d',
+    'cholecalciferol': 'vitamin_d',
+    
+    'vit_e': 'vitamin_e',
+    'vitE': 'vitamin_e',
+    'tocopherol': 'vitamin_e',
+    
+    'vit_k': 'vitamin_k',
+    'vitK': 'vitamin_k',
+    
+    'folic_acid': 'folate',
+    'folicAcid': 'folate',
+    
+    // Minerals - normalize to lowercase
+    'Iron': 'iron',
+    'Calcium': 'calcium',
+    'Magnesium': 'magnesium',
+    'Zinc': 'zinc',
+    'Selenium': 'selenium',
+    'Copper': 'copper',
+    'Potassium': 'potassium',
+    'Phosphorus': 'phosphorus',
+    'Manganese': 'manganese'
+  };
+  
+  // First try direct mapping
+  if (keyMappings[key]) {
+    return keyMappings[key];
+  }
+  
+  // Convert to lowercase and try again
+  const lowerKey = key.toLowerCase();
+  if (keyMappings[lowerKey]) {
+    return keyMappings[lowerKey];
+  }
+  
+  // Return normalized version (lowercase with underscores)
+  return lowerKey.replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+}
 
 // FIXED: Enhanced ensureCompleteNutrientData function with better unit handling
 function ensureCompleteNutrientData(intakeData, baseRDAData) {
@@ -143,6 +214,130 @@ function ensureCompleteNutrientData(intakeData, baseRDAData) {
   
   return completeIntakeData;
 }
+
+// FIXED: Updated baseRDAData with more nutrients including potassium
+const baseRDAData10 = {
+  vitamin_a: {
+    value: 900,
+    unit: 'mcg',
+    femaleAdjust: 0.78,
+    description: "Supports vision, immune function, and cell growth"
+  },
+  vitamin_c: {
+    value: 90,
+    unit: 'mg',
+    femaleAdjust: 0.83,
+    description: "Antioxidant that supports immune function and collagen production"
+  },
+  vitamin_d: {
+    value: 15,
+    unit: 'mcg',
+    femaleAdjust: 1.0,
+    description: "Crucial for calcium absorption and bone health"
+  },
+  vitamin_e: {
+    value: 15,
+    unit: 'mg',
+    femaleAdjust: 1.0,
+    description: "Antioxidant that protects cells from damage"
+  },
+  vitamin_k: {
+    value: 120,
+    unit: 'mcg',
+    femaleAdjust: 0.75,
+    description: "Essential for blood clotting and bone health"
+  },
+  vitamin_b6: {
+    value: 1.3,
+    unit: 'mg',
+    femaleAdjust: 1.0,
+    description: "Important for metabolism and brain development"
+  },
+  vitamin_b12: {
+    value: 2.4,
+    unit: 'mcg',
+    femaleAdjust: 1.0,
+    description: "Essential for nerve function and blood cell formation"
+  },
+  folate: {
+    value: 400,
+    unit: 'mcg',
+    femaleAdjust: 1.0,
+    description: "Critical for cell division and DNA synthesis"
+  },
+  iron: {
+    value: 8,
+    unit: 'mg',
+    femaleAdjust: 2.25,
+    description: "Essential for oxygen transport in the blood"
+  },
+  calcium: {
+    value: 1000,
+    unit: 'mg',
+    femaleAdjust: 1.0,
+    description: "Critical for bone health and muscle function"
+  },
+  magnesium: {
+    value: 420,
+    unit: 'mg',
+    femaleAdjust: 0.76,
+    description: "Involved in over 300 biochemical reactions in the body"
+  },
+  zinc: {
+    value: 11,
+    unit: 'mg',
+    femaleAdjust: 0.73,
+    description: "Important for immune function and wound healing"
+  },
+  selenium: {
+    value: 55,
+    unit: 'mcg',
+    femaleAdjust: 1.0,
+    description: "Antioxidant that helps protect cells from damage"
+  },
+  copper: {
+    value: 0.9,
+    unit: 'mg',
+    femaleAdjust: 1.0,
+    description: "Important for red blood cell formation and nerve function"
+  },
+  potassium: {
+    value: 3500,
+    unit: 'mg',
+    femaleAdjust: 0.86,
+    description: "Essential for heart function and blood pressure regulation"
+  },
+  phosphorus: {
+    value: 700,
+    unit: 'mg',
+    femaleAdjust: 1.0,
+    description: "Important for bone and teeth formation and energy storage"
+  },
+  vitamin_b1: {
+    value: 1.2,
+    unit: 'mg',
+    femaleAdjust: 0.92,
+    description: "Essential for energy metabolism"
+  },
+  vitamin_b2: {
+    value: 1.3,
+    unit: 'mg',
+    femaleAdjust: 0.85,
+    description: "Important for energy production and cell function"
+  },
+  vitamin_b3: {
+    value: 16,
+    unit: 'mg',
+    femaleAdjust: 0.875,
+    description: "Helps convert food into energy"
+  },
+  manganese: {
+    value: 2.3,
+    unit: 'mg',
+    femaleAdjust: 0.78,
+    description: "Important for bone development and wound healing"
+  }
+};
 
 // MacronutrientChart component
 function MacronutrientChart({ userData, userIntake = {} }) {
@@ -279,7 +474,6 @@ function MacronutrientChart({ userData, userIntake = {} }) {
     if (!chartRef.current || !personalizedRDA || !userIntake) return;
     
     try {
-      // FIXED: Use direct named import instead of getD3()
       select(chartRef.current).selectAll("*").remove();
   
       const margin = { top: 40, right: 180, bottom: 60, left: 70 };
@@ -511,600 +705,7 @@ function MacronutrientChart({ userData, userIntake = {} }) {
   );
 }
 
-// Updated EfficiencyChart - FIXED to use named imports
-function EfficiencyChart({ data, userData, foodDatabase }) {
-  const chartRef = useRef(null);
-  const [processedData, setProcessedData] = useState([]);
-
-  useEffect(() => {
-    if (!data || data.length === 0) return;
-    
-    const today = new Date();
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(today.getDate() - 7);
-    const oneWeekAgoString = formatDateForComparison(oneWeekAgo);
-    
-    const lastWeekData = data.filter(meal => {
-      try {
-        return isSameOrAfter(meal.date, oneWeekAgoString);
-      } catch (err) {
-        console.warn('Error parsing date:', meal.date);
-        return false;
-      }
-    });
-    
-    const updatedData = lastWeekData.map((meal, index) => {
-      try {
-        console.log(`Calculating efficiency for ${meal.name} using enhanced function`);
-        const efficiency = calculateFoodEfficiency(meal, userData);
-        
-        const finalEfficiency = (efficiency && efficiency > 0) ? efficiency : (meal.efficiency || meal.metabolicEfficiency || 80);
-        
-        console.log(`Final efficiency for ${meal.name}: ${finalEfficiency}`);
-        
-        return {
-          ...meal,
-          originalEfficiency: meal.efficiency || meal.metabolicEfficiency || 80,
-          efficiency: finalEfficiency,
-          actualEnergy: Math.round(meal.calories * (finalEfficiency / 100)),
-          wastedEnergy: Math.round(meal.calories * ((100 - finalEfficiency) / 100))
-        };
-      } catch (err) {
-        console.warn(`Error processing meal ${index}:`, err);
-        const fallbackEfficiency = meal.efficiency || meal.metabolicEfficiency || 80;
-        return {
-          ...meal,
-          efficiency: fallbackEfficiency,
-          actualEnergy: Math.round(meal.calories * (fallbackEfficiency / 100)),
-          wastedEnergy: Math.round(meal.calories * ((100 - fallbackEfficiency) / 100))
-        };
-      }
-    });
-    
-    const filteredData = updatedData.filter(meal => 
-      meal.mealType !== "Pre-workout" && meal.mealType !== "Post-workout"
-    );
-    
-    console.log('ProcessedData with consistent efficiency:', filteredData);
-    setProcessedData(filteredData);
-  }, [data, userData, foodDatabase]);
-
-  useEffect(() => {
-    if (!chartRef.current || !processedData || processedData.length === 0) return;
-    
-    // FIXED: Use named imports instead of getD3()
-    select(chartRef.current).selectAll("*").remove();
-    
-    const margin = { top: 60, right: 20, bottom: 50, left: 50 };
-    const width = 900 - margin.left - margin.right;
-    const height = 450 - margin.top - margin.bottom;
-    
-    const svg = select(chartRef.current)
-      .append("svg")
-      .attr("width", width + margin.left + margin.right)
-      .attr("height", height + margin.top + margin.bottom)
-      .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
-    
-    svg.append("text")
-      .attr("x", width / 2)
-      .attr("y", -30)
-      .attr("text-anchor", "middle")
-      .style("font-size", "18px")
-      .style("font-weight", "bold")
-      .text("Enhanced Metabolic Efficiency Chart");
-      
-    svg.append("text")
-      .attr("x", width / 2)
-      .attr("y", -10)
-      .attr("text-anchor", "middle")
-      .style("font-size", "14px")
-      .style("font-style", "italic")
-      .text("Optimized for Long COVID energy management");
-    
-    const tooltip = select("body")
-      .append("div")
-      .attr("class", "chart-tooltip")
-      .style("position", "absolute")
-      .style("visibility", "hidden")
-      .style("background-color", "white")
-      .style("border", "1px solid #ddd")
-      .style("border-radius", "5px")
-      .style("padding", "12px")
-      .style("font-size", "14px")
-      .style("box-shadow", "0 3px 14px rgba(0,0,0,0.25)")
-      .style("z-index", "10")
-      .style("max-width", "300px");
-    
-    // Generate date range without timezone issues
-    const allDatesInRange = [];
-    const today = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(today.getDate() - i);
-      const formattedDate = formatDateForComparison(date);
-      allDatesInRange.push(formattedDate);
-    }
-    
-    const combinedData = [];
-    const groupedByDate = group(processedData, d => d.date);
-    
-    const uniqueMealTypes = ['Breakfast', 'Morning Snack', 'Lunch', 'Afternoon Snack', 'Dinner', 'Late Night Snack'];
-    
-    allDatesInRange.forEach(date => {
-      const dateData = groupedByDate.get(date) || [];
-      
-      if (dateData.length > 0) {
-        const mealsByType = group(dateData, d => d.mealType);
-      
-        uniqueMealTypes.forEach(mealType => {
-          const meals = mealsByType.get(mealType);
-          if (meals && meals.length > 0) {
-            const totalCalories = sum(meals, d => d.calories);
-            
-            const weightedEfficiency = meals.reduce((acc, meal) => {
-              const mealEfficiency = meal.efficiency || 0;
-              const calorieWeight = totalCalories > 0 ? meal.calories / totalCalories : 0;
-              return acc + (mealEfficiency * calorieWeight);
-            }, 0);
-            
-            const totalActualEnergy = sum(meals, d => d.actualEnergy || (d.calories * (d.efficiency / 100)));
-            const totalWastedEnergy = totalCalories - totalActualEnergy;
-            
-            combinedData.push({
-              date: date,
-              mealType: mealType,
-              time: meals[0].time,
-              name: `${mealType} (${meals.length} items)`,
-              efficiency: Math.round(weightedEfficiency),
-              calories: totalCalories,
-              actualEnergy: totalActualEnergy,
-              wastedEnergy: totalWastedEnergy,
-              originalMeals: meals,
-              mealOrder: uniqueMealTypes.indexOf(mealType)
-            });
-          }
-        });
-      }
-    });
-    
-    const chronologicalData = [...combinedData].sort((a, b) => {
-      if (a.date !== b.date) return a.date.localeCompare(b.date);
-      return a.mealOrder - b.mealOrder;
-    });
-
-    const xOuter = scaleBand()
-      .domain(allDatesInRange)
-      .range([0, width])
-      .padding(0.2);
-    
-    const xInner = scaleBand()
-      .domain(uniqueMealTypes)
-      .range([0, xOuter.bandwidth()])
-      .padding(0.1);
-    
-    const formatDate = date => {
-      const parts = date.split('-');
-      return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
-    };
-    
-    const maxCalories = max(combinedData, d => d.calories) || 1000;
-    const y = scaleLinear()
-      .domain([0, maxCalories])
-      .range([height, 0]);
-
-    const yEff = scaleLinear()
-      .domain([0, 100])
-      .range([height, 0]);
-
-    // Create axes
-    svg.append("g")
-      .attr("transform", `translate(0,${height})`)
-      .call(axisBottom(xOuter).tickFormat(formatDate))
-      .selectAll("text")
-      .style("text-anchor", "end")
-      .attr("dx", "-.8em")
-      .attr("dy", ".15em")
-      .attr("transform", "rotate(-45)");
-
-    svg.append("g")
-      .call(axisLeft(y))
-      .append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("y", -50)
-      .attr("x", -height / 2)
-      .attr("text-anchor", "middle")
-      .style("fill", "#000")
-      .text("Calories");
-
-    svg.append("g")
-      .attr("transform", `translate(${width}, 0)`)
-      .call(axisRight(yEff))
-      .append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("y", 50)
-      .attr("x", -height / 2)
-      .attr("text-anchor", "middle")
-      .style("fill", "#000")
-      .text("Enhanced Efficiency (%)");
-
-    const mealColors = {
-      "Breakfast": "#DC2626",
-      "Morning Snack": "#EA580C",
-      "Lunch": "#16A34A",
-      "Afternoon Snack": "#0891B2",
-      "Dinner": "#7C3AED",
-      "Late Night Snack": "#BE185D"
-    };
-
-    // Add stacked bars
-    combinedData.forEach(meal => {
-      const mealColor = mealColors[meal.mealType] || "#999999";
-      const barX = xOuter(meal.date) + xInner(meal.mealType);
-      const barWidth = xInner.bandwidth();
-      
-      // Actual energy bar
-      svg.append("rect")
-        .attr("class", "actual-energy-bar")
-        .attr("x", barX)
-        .attr("y", y(meal.actualEnergy))
-        .attr("width", barWidth)
-        .attr("height", height - y(meal.actualEnergy))
-        .attr("fill", mealColor)
-        .attr("opacity", 0.9)
-        .attr("stroke", "#333")
-        .attr("stroke-width", 1)
-        .on("mouseover", function(event) {
-          select(this).attr("opacity", 0.7);
-          tooltip
-            .style("visibility", "visible")
-            .html(`
-              <div style="font-weight:bold;margin-bottom:10px;font-size:15px;">${meal.date} - ${meal.mealType}</div>
-              <div style="margin-bottom:6px;">Total Calories: ${Math.round(meal.calories)}</div>
-              <div style="margin-bottom:6px;"><strong>Enhanced Efficiency: ${meal.efficiency}%</strong></div>
-              <div style="margin-bottom:6px;">Usable Energy: ${Math.round(meal.actualEnergy)} cal</div>
-              <div style="margin-bottom:12px;">Energy Lost: ${Math.round(meal.wastedEnergy)} cal</div>
-              <div style="font-weight:bold;margin-bottom:5px;">Individual Items:</div>
-              <ul style="margin-top:0;padding-left:20px;">
-                ${meal.originalMeals.map(item => `
-                  <li>${item.name} - ${item.calories} cal (${Math.round(item.efficiency)}% efficient)</li>
-                `).join('')}
-              </ul>
-            `)
-            .style("left", `${event.pageX + 15}px`)
-            .style("top", `${event.pageY - 10}px`);
-        })
-        .on("mouseout", function() {
-          select(this).attr("opacity", 0.9);
-          tooltip.style("visibility", "hidden");
-        });
-      
-      // Potential energy bar (wasted energy)
-      svg.append("rect")
-        .attr("class", "potential-energy-bar")
-        .attr("x", barX)
-        .attr("y", y(meal.calories))
-        .attr("width", barWidth)
-        .attr("height", y(meal.actualEnergy) - y(meal.calories))
-        .attr("fill", mealColor)
-        .attr("opacity", 0.3)
-        .attr("stroke", "#333")
-        .attr("stroke-width", 1)
-        .attr("stroke-dasharray", "3,3");
-    });
-
-    if (chronologicalData.length > 0) {
-      const lineData = chronologicalData.map((meal, index) => {
-        const barX = xOuter(meal.date) + xInner(meal.mealType);
-        const barWidth = xInner.bandwidth();
-        const barCenterX = barX + (barWidth / 2);
-        
-        return {
-          ...meal,
-          xPos: barCenterX,
-          chronologicalIndex: index
-        };
-      });
-
-      const sortedLineData = [...lineData].sort((a, b) => a.xPos - b.xPos);
-      
-      const lineGenerator = line()
-        .x(d => d.xPos)
-        .y(d => yEff(d.efficiency))
-        .defined(d => d.efficiency != null && !isNaN(d.efficiency))
-        .curve(curveMonotoneX);
-      
-      svg.append("path")
-        .datum(sortedLineData)
-        .attr("fill", "none")
-        .attr("stroke", "grey")
-        .attr("stroke-width", 3)
-        .attr("d", lineGenerator);
-      
-      svg.selectAll(".efficiency-point")
-        .data(sortedLineData)
-        .enter()
-        .append("circle")
-        .attr("class", "efficiency-point")
-        .attr("cx", d => d.xPos)
-        .attr("cy", d => yEff(d.efficiency))
-        .attr("r", 5)
-        .attr("fill", "grey")
-        .attr("stroke", "#333")
-        .attr("stroke-width", 1)
-        .on("mouseover", function(event, d) {
-          select(this).attr("r", 8);
-          tooltip
-            .style("visibility", "visible")
-            .html(`
-              <div style="font-weight:bold;font-size:16px;">${d.mealType} - ${d.time}</div>
-              <div style="font-weight:bold;font-size:14px;">${d.date}</div>
-              <div>Enhanced Efficiency: <strong>${d.efficiency}%</strong></div>
-              <div style="margin-top:6px">Calculated using enhanced Long COVID algorithms</div>
-            `)
-            .style("left", `${event.pageX + 15}px`)
-            .style("top", `${event.pageY - 10}px`);
-        })
-        .on("mouseout", function() {
-          select(this).attr("r", 5);
-          tooltip.style("visibility", "hidden");
-        });
-    }
-
-    // Add legend
-    const legendY = height + 100;
-    
-    svg.append("line")
-      .attr("x1", 10)
-      .attr("x2", 40)
-      .attr("y1", legendY)
-      .attr("y2", legendY)
-      .attr("stroke", "grey")
-      .attr("stroke-width", 3);
-    
-    svg.append("circle")
-      .attr("cx", 25)
-      .attr("cy", legendY)
-      .attr("r", 5)
-      .attr("fill", "grey")
-      .attr("stroke", "#333")
-      .attr("stroke-width", 1);
-    
-    svg.append("text")
-      .attr("x", 50)
-      .attr("y", legendY + 4)
-      .style("font-size", "12px")
-      .text("Enhanced Efficiency (%)");
-    
-    const legendData = [
-      { label: "Usable Energy", color: "#DC2626", opacity: 0.9 },
-      { label: "Energy Lost", color: "#DC2626", opacity: 0.3 }
-    ];
-    
-    svg.selectAll(".legend-rect")
-      .data(legendData)
-      .enter()
-      .append("rect")
-      .attr("x", 200)
-      .attr("y", (d, i) => legendY - 10 + i * 20)
-      .attr("width", 15)
-      .attr("height", 15)
-      .attr("fill", d => d.color)
-      .attr("opacity", d => d.opacity)
-      .attr("stroke", "#333")
-      .attr("stroke-width", 1);
-    
-    svg.selectAll(".legend-text")
-      .data(legendData)
-      .enter()
-      .append("text")
-      .attr("x", 225)
-      .attr("y", (d, i) => legendY + 2 + i * 20)
-      .style("font-size", "12px")
-      .text(d => d.label);
-    
-    // Meal type legend
-    const mealTypeData = Object.entries(mealColors).map(([type, color]) => ({ type, color }));
-    
-    svg.selectAll(".meal-type-rect")
-      .data(mealTypeData)
-      .enter()
-      .append("rect")
-      .attr("x", (d, i) => 400 + Math.floor(i/3) * 140)
-      .attr("y", (d, i) => legendY - 10 + (i % 3) * 20)
-      .attr("width", 15)
-      .attr("height", 15)
-      .attr("fill", d => d.color)
-      .attr("stroke", "#333")
-      .attr("stroke-width", 1);
-    
-    svg.selectAll(".meal-type-text")
-      .data(mealTypeData)
-      .enter()
-      .append("text")
-      .attr("x", (d, i) => 425 + Math.floor(i/3) * 140)
-      .attr("y", (d, i) => legendY + 2 + (i % 3) * 20)
-      .style("font-size", "12px")
-      .text(d => d.type);
-
-    return () => {
-      select(".chart-tooltip").remove();
-    };
-  }, [chartRef, processedData, userData]);
-
-  if (!processedData || processedData.length === 0) {
-    return (
-      <div className="chart-container" style={{ width: '100%', minHeight: '300px' }}>
-        <div ref={chartRef} className="efficiency-chart">
-          <div className="placeholder">
-            <p>No meal data available for enhanced efficiency analysis.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ width: '100%', minHeight: '900px', display: 'flex', flexDirection: 'column' }}>
-      <div ref={chartRef} className="efficiency-chart" style={{ 
-        height: '600px', 
-        width: '100%', 
-        overflow: 'visible',
-        flexShrink: 0
-      }}></div>
-      
-      <div style={{ 
-        marginTop: '40px', 
-        padding: '25px', 
-        backgroundColor: '#f8f9fa', 
-        borderRadius: '8px',
-        width: '100%',
-        boxSizing: 'border-box',
-        flexShrink: 0,
-        border: '1px solid #dee2e6'
-      }}>
-        <h4 style={{ 
-          marginTop: '0', 
-          marginBottom: '20px', 
-          fontSize: '20px', 
-          fontWeight: 'bold',
-          color: '#333'
-        }}>
-          Enhanced Metabolic Efficiency
-        </h4>
-        <p style={{ 
-          marginBottom: '20px', 
-          lineHeight: '1.6',
-          fontSize: '16px',
-          color: '#555'
-        }}>
-          This enhanced chart uses advanced algorithms that take into account Long COVID severity, meal timing, 
-          macronutrient balance, and individual factors to provide more accurate efficiency calculations for 
-          energy management. The efficiency line follows proper chronological order.
-        </p>
-        <div style={{ marginTop: '20px' }}>
-          <strong style={{ fontSize: '18px', color: '#333' }}>Enhanced Features:</strong>
-          <ul style={{ 
-            marginTop: '15px', 
-            paddingLeft: '30px', 
-            lineHeight: '1.8',
-            fontSize: '15px',
-            color: '#555'
-          }}>
-            <li style={{ marginBottom: '8px' }}>Long COVID severity adjustments (metabolic efficiency factors)</li>
-            <li style={{ marginBottom: '8px' }}>Circadian rhythm timing optimization</li>
-            <li style={{ marginBottom: '8px' }}>Macronutrient balance scoring</li>
-            <li style={{ marginBottom: '8px' }}>Anti-inflammatory food benefits/cautions</li>
-            <li style={{ marginBottom: '8px' }}>Chronologically ordered efficiency tracking</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const baseRDAData10 = {
-  vitamin_a: {
-    value: 900,
-    unit: 'mcg',
-    femaleAdjust: 0.78,
-    description: "Supports vision, immune function, and cell growth"
-  },
-  vitamin_c: {
-    value: 90,
-    unit: 'mg',
-    femaleAdjust: 0.83,
-    description: "Antioxidant that supports immune function and collagen production"
-  },
-  vitamin_d: {
-    value: 15,
-    unit: 'mcg',
-    femaleAdjust: 1.0,
-    description: "Crucial for calcium absorption and bone health"
-  },
-  vitamin_e: {
-    value: 15,
-    unit: 'mg',
-    femaleAdjust: 1.0,
-    description: "Antioxidant that protects cells from damage"
-  },
-  vitamin_b6: {
-    value: 1.3,
-    unit: 'mg',
-    femaleAdjust: 1.0,
-    description: "Important for metabolism and brain development"
-  },
-  vitamin_b12: {
-    value: 2.4,
-    unit: 'mcg',
-    femaleAdjust: 1.0,
-    description: "Essential for nerve function and blood cell formation"
-  },
-  folate: {
-    value: 400,
-    unit: 'mcg',
-    femaleAdjust: 1.0,
-    description: "Critical for cell division and DNA synthesis"
-  },
-  iron: {
-    value: 8,
-    unit: 'mg',
-    femaleAdjust: 2.25,
-    description: "Essential for oxygen transport in the blood"
-  },
-  calcium: {
-    value: 1000,
-    unit: 'mg',
-    femaleAdjust: 1.0,
-    description: "Critical for bone health and muscle function"
-  },
-  magnesium: {
-    value: 420,
-    unit: 'mg',
-    femaleAdjust: 0.76,
-    description: "Involved in over 300 biochemical reactions in the body"
-  },
-  zinc: {
-    value: 11,
-    unit: 'mg',
-    femaleAdjust: 0.73,
-    description: "Important for immune function and wound healing"
-  },
-  selenium: {
-    value: 55,
-    unit: 'mcg',
-    femaleAdjust: 1.0,
-    description: "Antioxidant that helps protect cells from damage"
-  },
-  copper: {
-    value: 0.9,
-    unit: 'mg',
-    femaleAdjust: 1.0,
-    description: "Important for red blood cell formation and nerve function"
-  },
-  vitamin_b1: {
-    value: 1.2,
-    unit: 'mg',
-    femaleAdjust: 0.92,
-    description: "Essential for energy metabolism"
-  },
-  vitamin_b2: {
-    value: 1.3,
-    unit: 'mg',
-    femaleAdjust: 0.85,
-    description: "Important for energy production and cell function"
-  },
-  vitamin_b3: {
-    value: 16,
-    unit: 'mg',
-    femaleAdjust: 0.875,
-    description: "Helps convert food into energy"
-  }
-};
-
-// Rest of the components with fixed D3 imports...
-// [Continue with MicronutrientChart, getChartData, and AnalysisTab functions using named imports]
-
+// BulletChart component
 const BulletChart = ({ data, maxPercent }) => {
   const actualWidth = Math.min(100, (data.rawValue / data.rda) * 100);
   const displayPercentage = Math.round((data.rawValue / data.rda) * 100);
@@ -1162,8 +763,7 @@ const BulletChart = ({ data, maxPercent }) => {
   );
 };
 
-
-
+// FIXED: Complete MicronutrientChart component
 function MicronutrientChart({ data, userData }) {
   const [userInfo, setUserInfo] = useState(userData || {});
   const [chartData, setChartData] = useState([]);
@@ -1206,7 +806,7 @@ function MicronutrientChart({ data, userData }) {
       if (intakeDetails && typeof intakeDetails === 'object' && intakeDetails.value !== undefined) {
         intakeValue = parseFloat(intakeDetails.value) || 0;
       }
-      
+      console.log("intakeValue", intakeValue);
       const percentOfRDA = rdaInfo.value > 0 ? (intakeValue / rdaInfo.value) * 100 : 0;
       
       if (percentOfRDA > 10000) {
@@ -1219,13 +819,13 @@ function MicronutrientChart({ data, userData }) {
       const processedNutrient = {
         key: nutrientKey,
         name: formattedName,
-        value: Math.round(percentOfRDA),
+        value: parseFloat(percentOfRDA.toFixed(10)),
         rawValue: intakeValue,
         unit: rdaInfo.unit,
         rda: rdaInfo.value,
         rdaUnit: rdaInfo.unit,
         isAdjustedRDA: rdaInfo.isAdjusted || false,
-        percentOfRDA: Math.round(percentOfRDA),
+        percentOfRDA: parseFloat(percentOfRDA.toFixed(10)),
         category: category,
       };
       
@@ -1748,6 +1348,7 @@ function MicronutrientChart({ data, userData }) {
   );
 }
 
+// FIXED: Enhanced getChartData function with better nutrient key mapping
 function getChartData(foodLog, userProfile) {
   if (!foodLog || !Array.isArray(foodLog)) {
     return { macroSums: {}, microSums: {}, efficiencyData: [] };
@@ -1791,32 +1392,46 @@ function getChartData(foodLog, userProfile) {
       return;
     }
     
-    Object.entries(entry.micronutrients).forEach(([nutrientKey, nutrientValue]) => {
+    Object.entries(entry.micronutrients).forEach(([originalKey, nutrientValue]) => {
+      // FIXED: Skip macro nutrients
       const macroNutrients = ['protein', 'carbs', 'fat', 'calories', 'name', 'unit'];
-      if (macroNutrients.includes(nutrientKey.toLowerCase())) {
+      if (macroNutrients.includes(originalKey.toLowerCase())) {
         return;
       }
+      
+      // FIXED: Normalize the nutrient key using our mapping function
+      const nutrientKey = normalizeNutrientKey(originalKey);
+      console.log(`Mapping: "${originalKey}" → "${nutrientKey}"`);
       
       let valueToAdd = 0;
       let unit = 'mg';
       
+      // FIXED: Handle different value formats including "1.7 mg" strings
       if (typeof nutrientValue === 'object' && nutrientValue !== null) {
         if (nutrientValue.value !== undefined) {
           valueToAdd = parseFloat(nutrientValue.value) || 0;
           unit = nutrientValue.unit || 'mg';
         } else {
-          console.warn(`Object format not recognized for ${nutrientKey}:`, nutrientValue);
+          console.warn(`Object format not recognized for ${originalKey}:`, nutrientValue);
           return;
         }
       } else if (typeof nutrientValue === 'number') {
         valueToAdd = nutrientValue;
       } else if (typeof nutrientValue === 'string') {
-        valueToAdd = parseFloat(nutrientValue) || 0;
+        // FIXED: Parse strings like "1.7 mg" or "121.0 mg"
+        const match = nutrientValue.match(/^([\d.]+)\s*(\w+)?/);
+        if (match) {
+          valueToAdd = parseFloat(match[1]) || 0;
+          unit = match[2] || 'mg';
+        } else {
+          valueToAdd = parseFloat(nutrientValue) || 0;
+        }
       } else {
-        console.warn(`Unrecognized value format for ${nutrientKey}:`, nutrientValue);
+        console.warn(`Unrecognized value format for ${originalKey}:`, nutrientValue);
         return;
       }
       
+      // FIXED: Handle unit conversions for specific nutrients
       if (nutrientKey === 'zinc' || nutrientKey === 'selenium' || nutrientKey === 'copper') {
         if (unit === 'mcg' || unit === 'μg') {
           if (nutrientKey === 'zinc' || nutrientKey === 'copper') {
@@ -1827,6 +1442,7 @@ function getChartData(foodLog, userProfile) {
         }
       }
       
+      // FIXED: Sanity check for unreasonable values
       const reasonableMaxValues = {
         'zinc': 50,
         'selenium': 400,
@@ -1834,16 +1450,21 @@ function getChartData(foodLog, userProfile) {
         'iron': 100,
         'vitamin_c': 2000,
         'vitamin_d': 100,
+        'vitamin_e': 50,
+        'vitamin_b6': 20,
+        'vitamin_b12': 100,
         'calcium': 3000,
-        'magnesium': 1000
+        'magnesium': 1000,
+        'potassium': 10000
       };
       
       const maxValue = reasonableMaxValues[nutrientKey] || 10000;
       if (valueToAdd < 0 || valueToAdd > maxValue) {
         console.warn(`Suspicious ${nutrientKey} value: ${valueToAdd} ${unit} (max expected: ${maxValue}) - using cautiously`);
-        valueToAdd = Math.min(valueToAdd, maxValue);
+        valueToAdd = Math.min(Math.max(valueToAdd, 0), maxValue);
       }
       
+      // FIXED: Accumulate the values
       if (!microSums[nutrientKey]) {
         microSums[nutrientKey] = { value: 0, unit: unit };
       }
@@ -1858,6 +1479,7 @@ function getChartData(foodLog, userProfile) {
   console.log('Macros:', macroSums);
   console.log('Micros:', microSums);
   
+  // FIXED: Validate final micronutrient totals
   Object.entries(microSums).forEach(([nutrient, data]) => {
     const warningThresholds = {
       'zinc': 100,
@@ -1880,6 +1502,497 @@ function getChartData(foodLog, userProfile) {
     microSums, 
     efficiencyData: foodLog 
   };
+}
+
+// Updated EfficiencyChart - FIXED to use named imports
+function EfficiencyChart({ data, userData, foodDatabase }) {
+  const chartRef = useRef(null);
+  const [processedData, setProcessedData] = useState([]);
+
+  useEffect(() => {
+    if (!data || data.length === 0) return;
+    
+    const today = new Date();
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(today.getDate() - 7);
+    const oneWeekAgoString = formatDateForComparison(oneWeekAgo);
+    
+    const lastWeekData = data.filter(meal => {
+      try {
+        return isSameOrAfter(meal.date, oneWeekAgoString);
+      } catch (err) {
+        console.warn('Error parsing date:', meal.date);
+        return false;
+      }
+    });
+    
+    const updatedData = lastWeekData.map((meal, index) => {
+      try {
+        console.log(`Calculating efficiency for ${meal.name} using enhanced function`);
+        const efficiency = calculateFoodEfficiency(meal, userData);
+        
+        const finalEfficiency = (efficiency && efficiency > 0) ? efficiency : (meal.efficiency || meal.metabolicEfficiency || 80);
+        
+        console.log(`Final efficiency for ${meal.name}: ${finalEfficiency}`);
+        
+        return {
+          ...meal,
+          originalEfficiency: meal.efficiency || meal.metabolicEfficiency || 80,
+          efficiency: finalEfficiency,
+          actualEnergy: Math.round(meal.calories * (finalEfficiency / 100)),
+          wastedEnergy: Math.round(meal.calories * ((100 - finalEfficiency) / 100))
+        };
+      } catch (err) {
+        console.warn(`Error processing meal ${index}:`, err);
+        const fallbackEfficiency = meal.efficiency || meal.metabolicEfficiency || 80;
+        return {
+          ...meal,
+          efficiency: fallbackEfficiency,
+          actualEnergy: Math.round(meal.calories * (fallbackEfficiency / 100)),
+          wastedEnergy: Math.round(meal.calories * ((100 - fallbackEfficiency) / 100))
+        };
+      }
+    });
+    
+    const filteredData = updatedData.filter(meal => 
+      meal.mealType !== "Pre-workout" && meal.mealType !== "Post-workout"
+    );
+    
+    console.log('ProcessedData with consistent efficiency:', filteredData);
+    setProcessedData(filteredData);
+  }, [data, userData, foodDatabase]);
+
+  useEffect(() => {
+    if (!chartRef.current || !processedData || processedData.length === 0) return;
+    
+    select(chartRef.current).selectAll("*").remove();
+    
+    const margin = { top: 60, right: 20, bottom: 50, left: 50 };
+    const width = 900 - margin.left - margin.right;
+    const height = 450 - margin.top - margin.bottom;
+    
+    const svg = select(chartRef.current)
+      .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+    
+    svg.append("text")
+      .attr("x", width / 2)
+      .attr("y", -30)
+      .attr("text-anchor", "middle")
+      .style("font-size", "18px")
+      .style("font-weight", "bold")
+      .text("Enhanced Metabolic Efficiency Chart");
+      
+    svg.append("text")
+      .attr("x", width / 2)
+      .attr("y", -10)
+      .attr("text-anchor", "middle")
+      .style("font-size", "14px")
+      .style("font-style", "italic")
+      .text("Optimized for Long COVID energy management");
+    
+    const tooltip = select("body")
+      .append("div")
+      .attr("class", "chart-tooltip")
+      .style("position", "absolute")
+      .style("visibility", "hidden")
+      .style("background-color", "white")
+      .style("border", "1px solid #ddd")
+      .style("border-radius", "5px")
+      .style("padding", "12px")
+      .style("font-size", "14px")
+      .style("box-shadow", "0 3px 14px rgba(0,0,0,0.25)")
+      .style("z-index", "10")
+      .style("max-width", "300px");
+    
+    // Generate date range without timezone issues
+    const allDatesInRange = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(today.getDate() - i);
+      const formattedDate = formatDateForComparison(date);
+      allDatesInRange.push(formattedDate);
+    }
+    
+    const combinedData = [];
+    const groupedByDate = group(processedData, d => d.date);
+    
+    const uniqueMealTypes = ['Breakfast', 'Morning Snack', 'Lunch', 'Afternoon Snack', 'Dinner', 'Late Night Snack'];
+    
+    allDatesInRange.forEach(date => {
+      const dateData = groupedByDate.get(date) || [];
+      
+      if (dateData.length > 0) {
+        const mealsByType = group(dateData, d => d.mealType);
+      
+        uniqueMealTypes.forEach(mealType => {
+          const meals = mealsByType.get(mealType);
+          if (meals && meals.length > 0) {
+            const totalCalories = sum(meals, d => d.calories);
+            
+            const weightedEfficiency = meals.reduce((acc, meal) => {
+              const mealEfficiency = meal.efficiency || 0;
+              const calorieWeight = totalCalories > 0 ? meal.calories / totalCalories : 0;
+              return acc + (mealEfficiency * calorieWeight);
+            }, 0);
+            
+            const totalActualEnergy = sum(meals, d => d.actualEnergy || (d.calories * (d.efficiency / 100)));
+            const totalWastedEnergy = totalCalories - totalActualEnergy;
+            
+            combinedData.push({
+              date: date,
+              mealType: mealType,
+              time: meals[0].time,
+              name: `${mealType} (${meals.length} items)`,
+              efficiency: Math.round(weightedEfficiency),
+              calories: totalCalories,
+              actualEnergy: totalActualEnergy,
+              wastedEnergy: totalWastedEnergy,
+              originalMeals: meals,
+              mealOrder: uniqueMealTypes.indexOf(mealType)
+            });
+          }
+        });
+      }
+    });
+    
+    const chronologicalData = [...combinedData].sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      return a.mealOrder - b.mealOrder;
+    });
+
+    const xOuter = scaleBand()
+      .domain(allDatesInRange)
+      .range([0, width])
+      .padding(0.2);
+    
+    const xInner = scaleBand()
+      .domain(uniqueMealTypes)
+      .range([0, xOuter.bandwidth()])
+      .padding(0.1);
+    
+    const formatDate = date => {
+      const parts = date.split('-');
+      return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
+    };
+    
+    const maxCalories = max(combinedData, d => d.calories) || 1000;
+    const y = scaleLinear()
+      .domain([0, maxCalories])
+      .range([height, 0]);
+
+    const yEff = scaleLinear()
+      .domain([0, 100])
+      .range([height, 0]);
+
+    // Create axes
+    svg.append("g")
+      .attr("transform", `translate(0,${height})`)
+      .call(axisBottom(xOuter).tickFormat(formatDate))
+      .selectAll("text")
+      .style("text-anchor", "end")
+      .attr("dx", "-.8em")
+      .attr("dy", ".15em")
+      .attr("transform", "rotate(-45)");
+
+    svg.append("g")
+      .call(axisLeft(y))
+      .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", -50)
+      .attr("x", -height / 2)
+      .attr("text-anchor", "middle")
+      .style("fill", "#000")
+      .text("Calories");
+
+    svg.append("g")
+      .attr("transform", `translate(${width}, 0)`)
+      .call(axisRight(yEff))
+      .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 50)
+      .attr("x", -height / 2)
+      .attr("text-anchor", "middle")
+      .style("fill", "#000")
+      .text("Enhanced Efficiency (%)");
+
+    const mealColors = {
+      "Breakfast": "#DC2626",
+      "Morning Snack": "#EA580C",
+      "Lunch": "#16A34A",
+      "Afternoon Snack": "#0891B2",
+      "Dinner": "#7C3AED",
+      "Late Night Snack": "#BE185D"
+    };
+
+    // Add stacked bars
+    combinedData.forEach(meal => {
+      const mealColor = mealColors[meal.mealType] || "#999999";
+      const barX = xOuter(meal.date) + xInner(meal.mealType);
+      const barWidth = xInner.bandwidth();
+      
+      // Actual energy bar
+      svg.append("rect")
+        .attr("class", "actual-energy-bar")
+        .attr("x", barX)
+        .attr("y", y(meal.actualEnergy))
+        .attr("width", barWidth)
+        .attr("height", height - y(meal.actualEnergy))
+        .attr("fill", mealColor)
+        .attr("opacity", 0.9)
+        .attr("stroke", "#333")
+        .attr("stroke-width", 1)
+        .on("mouseover", function(event) {
+          select(this).attr("opacity", 0.7);
+          tooltip
+            .style("visibility", "visible")
+            .html(`
+              <div style="font-weight:bold;margin-bottom:10px;font-size:15px;">${meal.date} - ${meal.mealType}</div>
+              <div style="margin-bottom:6px;">Total Calories: ${Math.round(meal.calories)}</div>
+              <div style="margin-bottom:6px;"><strong>Enhanced Efficiency: ${meal.efficiency}%</strong></div>
+              <div style="margin-bottom:6px;">Usable Energy: ${Math.round(meal.actualEnergy)} cal</div>
+              <div style="margin-bottom:12px;">Energy Lost: ${Math.round(meal.wastedEnergy)} cal</div>
+              <div style="font-weight:bold;margin-bottom:5px;">Individual Items:</div>
+              <ul style="margin-top:0;padding-left:20px;">
+                ${meal.originalMeals.map(item => `
+                  <li>${item.name} - ${item.calories} cal (${Math.round(item.efficiency)}% efficient)</li>
+                `).join('')}
+              </ul>
+            `)
+            .style("left", `${event.pageX + 15}px`)
+            .style("top", `${event.pageY - 10}px`);
+        })
+        .on("mouseout", function() {
+          select(this).attr("opacity", 0.9);
+          tooltip.style("visibility", "hidden");
+        });
+      
+      // Potential energy bar (wasted energy)
+      svg.append("rect")
+        .attr("class", "potential-energy-bar")
+        .attr("x", barX)
+        .attr("y", y(meal.calories))
+        .attr("width", barWidth)
+        .attr("height", y(meal.actualEnergy) - y(meal.calories))
+        .attr("fill", mealColor)
+        .attr("opacity", 0.3)
+        .attr("stroke", "#333")
+        .attr("stroke-width", 1)
+        .attr("stroke-dasharray", "3,3");
+    });
+
+    if (chronologicalData.length > 0) {
+      const lineData = chronologicalData.map((meal, index) => {
+        const barX = xOuter(meal.date) + xInner(meal.mealType);
+        const barWidth = xInner.bandwidth();
+        const barCenterX = barX + (barWidth / 2);
+        
+        return {
+          ...meal,
+          xPos: barCenterX,
+          chronologicalIndex: index
+        };
+      });
+
+      const sortedLineData = [...lineData].sort((a, b) => a.xPos - b.xPos);
+      
+      const lineGenerator = line()
+        .x(d => d.xPos)
+        .y(d => yEff(d.efficiency))
+        .defined(d => d.efficiency != null && !isNaN(d.efficiency))
+        .curve(curveMonotoneX);
+      
+      svg.append("path")
+        .datum(sortedLineData)
+        .attr("fill", "none")
+        .attr("stroke", "grey")
+        .attr("stroke-width", 3)
+        .attr("d", lineGenerator);
+      
+      svg.selectAll(".efficiency-point")
+        .data(sortedLineData)
+        .enter()
+        .append("circle")
+        .attr("class", "efficiency-point")
+        .attr("cx", d => d.xPos)
+        .attr("cy", d => yEff(d.efficiency))
+        .attr("r", 5)
+        .attr("fill", "grey")
+        .attr("stroke", "#333")
+        .attr("stroke-width", 1)
+        .on("mouseover", function(event, d) {
+          select(this).attr("r", 8);
+          tooltip
+            .style("visibility", "visible")
+            .html(`
+              <div style="font-weight:bold;font-size:16px;">${d.mealType} - ${d.time}</div>
+              <div style="font-weight:bold;font-size:14px;">${d.date}</div>
+              <div>Enhanced Efficiency: <strong>${d.efficiency}%</strong></div>
+              <div style="margin-top:6px">Calculated using enhanced Long COVID algorithms</div>
+            `)
+            .style("left", `${event.pageX + 15}px`)
+            .style("top", `${event.pageY - 10}px`);
+        })
+        .on("mouseout", function() {
+          select(this).attr("r", 5);
+          tooltip.style("visibility", "hidden");
+        });
+    }
+
+    // Add legend
+    const legendY = height + 100;
+    
+    svg.append("line")
+      .attr("x1", 10)
+      .attr("x2", 40)
+      .attr("y1", legendY)
+      .attr("y2", legendY)
+      .attr("stroke", "grey")
+      .attr("stroke-width", 3);
+    
+    svg.append("circle")
+      .attr("cx", 25)
+      .attr("cy", legendY)
+      .attr("r", 5)
+      .attr("fill", "grey")
+      .attr("stroke", "#333")
+      .attr("stroke-width", 1);
+    
+    svg.append("text")
+      .attr("x", 50)
+      .attr("y", legendY + 4)
+      .style("font-size", "12px")
+      .text("Enhanced Efficiency (%)");
+    
+    const legendData = [
+      { label: "Usable Energy", color: "#DC2626", opacity: 0.9 },
+      { label: "Energy Lost", color: "#DC2626", opacity: 0.3 }
+    ];
+    
+    svg.selectAll(".legend-rect")
+      .data(legendData)
+      .enter()
+      .append("rect")
+      .attr("x", 200)
+      .attr("y", (d, i) => legendY - 10 + i * 20)
+      .attr("width", 15)
+      .attr("height", 15)
+      .attr("fill", d => d.color)
+      .attr("opacity", d => d.opacity)
+      .attr("stroke", "#333")
+      .attr("stroke-width", 1);
+    
+    svg.selectAll(".legend-text")
+      .data(legendData)
+      .enter()
+      .append("text")
+      .attr("x", 225)
+      .attr("y", (d, i) => legendY + 2 + i * 20)
+      .style("font-size", "12px")
+      .text(d => d.label);
+    
+    // Meal type legend
+    const mealTypeData = Object.entries(mealColors).map(([type, color]) => ({ type, color }));
+    
+    svg.selectAll(".meal-type-rect")
+      .data(mealTypeData)
+      .enter()
+      .append("rect")
+      .attr("x", (d, i) => 400 + Math.floor(i/3) * 140)
+      .attr("y", (d, i) => legendY - 10 + (i % 3) * 20)
+      .attr("width", 15)
+      .attr("height", 15)
+      .attr("fill", d => d.color)
+      .attr("stroke", "#333")
+      .attr("stroke-width", 1);
+    
+    svg.selectAll(".meal-type-text")
+      .data(mealTypeData)
+      .enter()
+      .append("text")
+      .attr("x", (d, i) => 425 + Math.floor(i/3) * 140)
+      .attr("y", (d, i) => legendY + 2 + (i % 3) * 20)
+      .style("font-size", "12px")
+      .text(d => d.type);
+
+    return () => {
+      select(".chart-tooltip").remove();
+    };
+  }, [chartRef, processedData, userData]);
+
+  if (!processedData || processedData.length === 0) {
+    return (
+      <div className="chart-container" style={{ width: '100%', minHeight: '300px' }}>
+        <div ref={chartRef} className="efficiency-chart">
+          <div className="placeholder">
+            <p>No meal data available for enhanced efficiency analysis.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ width: '100%', minHeight: '900px', display: 'flex', flexDirection: 'column' }}>
+      <div ref={chartRef} className="efficiency-chart" style={{ 
+        height: '600px', 
+        width: '100%', 
+        overflow: 'visible',
+        flexShrink: 0
+      }}></div>
+      
+      <div style={{ 
+        marginTop: '40px', 
+        padding: '25px', 
+        backgroundColor: '#f8f9fa', 
+        borderRadius: '8px',
+        width: '100%',
+        boxSizing: 'border-box',
+        flexShrink: 0,
+        border: '1px solid #dee2e6'
+      }}>
+        <h4 style={{ 
+          marginTop: '0', 
+          marginBottom: '20px', 
+          fontSize: '20px', 
+          fontWeight: 'bold',
+          color: '#333'
+        }}>
+          Enhanced Metabolic Efficiency
+        </h4>
+        <p style={{ 
+          marginBottom: '20px', 
+          lineHeight: '1.6',
+          fontSize: '16px',
+          color: '#555'
+        }}>
+          This enhanced chart uses advanced algorithms that take into account Long COVID severity, meal timing, 
+          macronutrient balance, and individual factors to provide more accurate efficiency calculations for 
+          energy management. The efficiency line follows proper chronological order.
+        </p>
+        <div style={{ marginTop: '20px' }}>
+          <strong style={{ fontSize: '18px', color: '#333' }}>Enhanced Features:</strong>
+          <ul style={{ 
+            marginTop: '15px', 
+            paddingLeft: '30px', 
+            lineHeight: '1.8',
+            fontSize: '15px',
+            color: '#555'
+          }}>
+            <li style={{ marginBottom: '8px' }}>Long COVID severity adjustments (metabolic efficiency factors)</li>
+            <li style={{ marginBottom: '8px' }}>Circadian rhythm timing optimization</li>
+            <li style={{ marginBottom: '8px' }}>Macronutrient balance scoring</li>
+            <li style={{ marginBottom: '8px' }}>Anti-inflammatory food benefits/cautions</li>
+            <li style={{ marginBottom: '8px' }}>Chronologically ordered efficiency tracking</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function AnalysisTab({ foodLog, userProfile }) {

@@ -60,14 +60,6 @@ function Dashboard() {
     navigate('/food-tracker');
   };
 
-  // Handle button click for activity dashboard
-  const handleViewActivityData = () => {
-    console.log('handleViewActivityData called - navigating to /fitbit-dashboard');
-    navigate('/fitbit-dashboard');
-  };
-
-
-
   // Handle navigation to personal settings
   const handlePersonalSettings = () => {
     navigate('/personal-settings');
@@ -120,12 +112,6 @@ function Dashboard() {
       navigate('/login', { replace: true });
     }
   };
-
-  // Enhanced device connection check
-  const isDeviceConnected = userData && 
-                           userData.deviceConnected === true && 
-                           userData.selectedDevice && 
-                           userData.fitbitData?.accessToken;
   
   // Show loading state
   if (loading) {
@@ -136,16 +122,6 @@ function Dashboard() {
       </div>
     );
   }
-
-  // Debug logging for connection state
-  console.log('=== DASHBOARD DEBUG INFO ===');
-  console.log('userData:', userData);
-  console.log('selectedDevice:', userData?.selectedDevice);
-  console.log('deviceConnected:', userData?.deviceConnected);
-  console.log('fitbitData exists:', !!userData?.fitbitData);
-  console.log('fitbitData accessToken exists:', !!userData?.fitbitData?.accessToken);
-  console.log('isDeviceConnected:', isDeviceConnected);
-  console.log('=== END DEBUG INFO ===');
   
   return (
     <div className="dashboard-container">
@@ -204,74 +180,7 @@ function Dashboard() {
               >
                 🩺 Track Symptoms
               </button>
-
-              {isDeviceConnected && (
-                <button 
-                  className="action-button activity" 
-                  onClick={handleViewActivityData}
-                >
-                  📊 View Activity Data
-                </button>
-              )}
             </div>
-
-            {/* Connection Status Indicator */}
-            {isDeviceConnected && (
-              <div className="connection-status" style={{
-                marginTop: '1rem',
-                padding: '0.75rem',
-                borderRadius: '8px',
-                fontSize: '0.9rem',
-                background: 'rgba(34, 197, 94, 0.1)',
-                border: '1px solid rgba(34, 197, 94, 0.3)',
-                color: '#059669'
-              }}>
-                <strong>Device Status:</strong> <span>✅ Activity tracker connected</span>
-              </div>
-            )}
-
-            {/* Debug Panel (only show in development) */}
-            {process.env.NODE_ENV === 'development' && userData && (
-              <details style={{ marginTop: '1rem' }}>
-                <summary style={{ 
-                  color: '#6b7280', 
-                  fontSize: '0.8rem', 
-                  cursor: 'pointer',
-                  padding: '0.5rem',
-                  background: '#f9fafb',
-                  borderRadius: '4px'
-                }}>
-                  🐛 Debug Info (Development Only)
-                </summary>
-                <div style={{
-                  marginTop: '0.5rem',
-                  padding: '1rem',
-                  background: '#f3f4f6',
-                  borderRadius: '4px',
-                  fontFamily: 'monospace',
-                  fontSize: '0.8rem',
-                  color: '#374151'
-                }}>
-                  <strong>User Data:</strong><br/>
-                  Selected Device: {userData?.selectedDevice || 'none'}<br/>
-                  Device Connected: {userData?.deviceConnected === true ? 'true' : 'false'}<br/>
-                  Fitbit Token Exists: {userData?.fitbitData?.accessToken ? 'yes' : 'no'}<br/>
-                  Connection Check Result: {isDeviceConnected === true ? 'true' : 'false'}<br/>
-                  <br/>
-                  <strong>Raw User Data:</strong><br/>
-                  <pre style={{ 
-                    background: 'white', 
-                    padding: '0.5rem', 
-                    borderRadius: '4px',
-                    fontSize: '0.7rem',
-                    overflow: 'auto',
-                    maxHeight: '200px'
-                  }}>
-                    {JSON.stringify(userData, null, 2)}
-                  </pre>
-                </div>
-              </details>
-            )}
           </div>
         </div>
       </div>

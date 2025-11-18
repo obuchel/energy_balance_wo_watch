@@ -360,7 +360,7 @@ function App() {
   console.log('Pyodide status:', pyodideStatus);
 
   return (
-    <Router basename="/energy_balance">
+    <Router basename="/energy_balance_wo_watch">
       <div className="App">
         {/* Enhanced status display with more details */}
         {pyodideStatus === 'loading' && (
