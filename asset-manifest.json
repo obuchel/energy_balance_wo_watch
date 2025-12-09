@@ -1,21 +1,21 @@
 {
   "files": {
-    "main.css": "/energy_balance_wo_watch/static/css/main.1c4d4123.css",
-    "main.js": "/energy_balance_wo_watch/static/js/main.3032c2ab.js",
-    "static/css/211.b5120a89.chunk.css": "/energy_balance_wo_watch/static/css/211.b5120a89.chunk.css",
-    "static/js/211.1c953a26.chunk.js": "/energy_balance_wo_watch/static/js/211.1c953a26.chunk.js",
+    "main.css": "/energy_balance_wo_watch/static/css/main.475b8dc1.css",
+    "main.js": "/energy_balance_wo_watch/static/js/main.6cc8713b.js",
+    "static/css/968.09b3bcd4.chunk.css": "/energy_balance_wo_watch/static/css/968.09b3bcd4.chunk.css",
+    "static/js/968.5a55216c.chunk.js": "/energy_balance_wo_watch/static/js/968.5a55216c.chunk.js",
     "static/js/488.35916242.chunk.js": "/energy_balance_wo_watch/static/js/488.35916242.chunk.js",
-    "static/js/288.077da221.chunk.js": "/energy_balance_wo_watch/static/js/288.077da221.chunk.js",
+    "static/js/8.632e431a.chunk.js": "/energy_balance_wo_watch/static/js/8.632e431a.chunk.js",
     "index.html": "/energy_balance_wo_watch/index.html",
-    "main.1c4d4123.css.map": "/energy_balance_wo_watch/static/css/main.1c4d4123.css.map",
-    "main.3032c2ab.js.map": "/energy_balance_wo_watch/static/js/main.3032c2ab.js.map",
-    "211.b5120a89.chunk.css.map": "/energy_balance_wo_watch/static/css/211.b5120a89.chunk.css.map",
-    "211.1c953a26.chunk.js.map": "/energy_balance_wo_watch/static/js/211.1c953a26.chunk.js.map",
+    "main.475b8dc1.css.map": "/energy_balance_wo_watch/static/css/main.475b8dc1.css.map",
+    "main.6cc8713b.js.map": "/energy_balance_wo_watch/static/js/main.6cc8713b.js.map",
+    "968.09b3bcd4.chunk.css.map": "/energy_balance_wo_watch/static/css/968.09b3bcd4.chunk.css.map",
+    "968.5a55216c.chunk.js.map": "/energy_balance_wo_watch/static/js/968.5a55216c.chunk.js.map",
     "488.35916242.chunk.js.map": "/energy_balance_wo_watch/static/js/488.35916242.chunk.js.map",
-    "288.077da221.chunk.js.map": "/energy_balance_wo_watch/static/js/288.077da221.chunk.js.map"
+    "8.632e431a.chunk.js.map": "/energy_balance_wo_watch/static/js/8.632e431a.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.1c4d4123.css",
-    "static/js/main.3032c2ab.js"
+    "static/css/main.475b8dc1.css",
+    "static/js/main.6cc8713b.js"
   ]
 }
