@@ -97,6 +97,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 <div class="app-header">
   <div class="app-title">Recipe builder</div>
   <div class="app-subtitle">FNDDS 2021–2023 · Long COVID enriched · live calorie compute</div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+    <span id="data-status" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);letter-spacing:.04em;">
+      ⏳ loading foods_updated.json…
+    </span>
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:12px;color:var(--text2);white-space:nowrap;" title="Load foods_updated.json from disk">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v7M3 5l3 3 3-3M1 10h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Load foods_updated.json
+      <input type="file" id="json-file-input" accept=".json" style="display:none;" onchange="loadFromFile(this)">
+    </label>
+  </div>
 </div>
 
 <div class="layout">
@@ -174,28 +184,110 @@ const SAMPLE = [
 let foods = [];
 let recipe = [];
 
+function setStatus(msg, color) {
+  const el = document.getElementById('data-status');
+  if (el) { el.textContent = msg; el.style.color = color || 'var(--text3)'; }
+}
+
+function applyFoods(data) {
+  foods = Array.isArray(data) ? data : [];
+  const sample = foods[0];
+  let diagDetail = '';
+  if (sample) {
+    const per100g = sample?.nutrients?.per100g || {};
+    const testVal = per100g?.calories;
+    const isWrapped = testVal && typeof testVal === 'object' && 'value' in testVal;
+    diagDetail = isWrapped
+      ? ` · schema: {value,unit} objects ✓`
+      : ` · schema: plain numbers ✓`;
+    // Quick sanity check
+    const cal = isWrapped ? testVal.value : testVal;
+    if (cal) diagDetail += ` · first food: ${cal} kcal/100g`;
+  }
+  setStatus(`✓ ${foods.length.toLocaleString()} foods loaded${diagDetail}`, 'var(--accent)');
+  const si = document.getElementById('search-input');
+  if (si && si.value.trim().length >= 2) si.dispatchEvent(new Event('input'));
+}
+
+// Load via file picker (always works, even on file://)
+function loadFromFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  setStatus('⏳ reading file…', 'var(--text3)');
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      applyFoods(JSON.parse(e.target.result));
+    } catch {
+      setStatus('✗ invalid JSON', 'var(--warn)');
+    }
+  };
+  reader.onerror = () => setStatus('✗ file read error', 'var(--warn)');
+  reader.readAsText(file);
+}
+
+// Try fetch first (works when served via a web server / localhost)
 fetch('foods_updated.json')
-  .then(r => r.json())
-  .then(d => { foods = d; console.log(`Loaded ${d.length} real foods`); })
-  .catch(() => { foods = SAMPLE; console.log('Using sample data — place foods_updated.json next to this file'); });
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(d => applyFoods(d))
+  .catch(() => {
+    // fetch blocked (file:// protocol) or file not found — use sample data and prompt
+    foods = SAMPLE;
+    setStatus('⚠ sample data · click "Load foods_updated.json" to use real data', 'var(--amber)');
+  });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const sc = (v, g) => (v || 0) / 100 * g;
-const gn = (f, k) => f?.nutrients?.per100g?.[k] || 0;
 const r1 = v => Math.round(v * 10) / 10;
 const ri = v => Math.round(v);
 
+// Reads a nutrient value from per100g object.
+// Handles TWO schemas:
+//   1. Plain number:          { energy_kcal: 52 }
+//   2. Object with value:     { calories: { value: 52, unit: "kcal" } }
+function gn(n, ...keys) {
+  for (const k of keys) {
+    let v = n[k];
+    if (v == null) continue;
+    // Unwrap { value, unit } objects (real foods_updated.json schema)
+    if (typeof v === 'object' && 'value' in v) v = v.value;
+    if (v != null && v !== '' && !isNaN(+v)) return +v;
+  }
+  return 0;
+}
+
 function computeItem(food, grams) {
-  const n = food.nutrients?.per100g || {};
+  const n = food?.nutrients?.per100g
+         || food?.nutritional_metrics?.per100g
+         || food?.nutrients
+         || {};
+
+  // vitamin_d in real data is mcg (not IU) — multiply by 40 to convert
+  const vitDRaw = gn(n, 'vitamin_d_iu', 'vitaminD', 'vit_d');
+  const vitDMcg = gn(n, 'vitamin_d', 'vitamin_d_mcg');
+  const vitDIU  = vitDRaw > 0 ? vitDRaw : vitDMcg * 40;
+
   return {
-    kcal: sc(n.energy_kcal, grams), protein: sc(n.protein_g, grams),
-    fat: sc(n.fat_g, grams), carbs: sc(n.carbohydrate_g, grams),
-    sodium: sc(n.sodium_mg, grams), potassium: sc(n.potassium_mg, grams),
-    magnesium: sc(n.magnesium_mg, grams), calcium: sc(n.calcium_mg, grams),
-    iron: sc(n.iron_mg, grams), vitD: sc(n.vitamin_d_iu, grams),
-    fiber: sc(n.fiber_g, grams),
+    kcal:      sc(gn(n, 'calories',    'energy_kcal', 'energy', 'Energy', 'kcal'),           grams),
+    protein:   sc(gn(n, 'protein',     'protein_g',   'Protein'),                             grams),
+    fat:       sc(gn(n, 'fat',         'fat_g',        'Total lipid (fat)', 'total_fat'),     grams),
+    carbs:     sc(gn(n, 'carbs',       'carbohydrate_g', 'carbohydrate', 'Carbohydrates',
+                        'Carbohydrate, by difference', 'total_carbohydrate'),                 grams),
+    sodium:    sc(gn(n, 'sodium',      'sodium_mg',    'Sodium, Na', 'Sodium'),               grams),
+    potassium: sc(gn(n, 'potassium',   'potassium_mg', 'Potassium, K', 'Potassium'),          grams),
+    magnesium: sc(gn(n, 'magnesium',   'magnesium_mg', 'Magnesium, Mg', 'Magnesium'),         grams),
+    calcium:   sc(gn(n, 'calcium',     'calcium_mg',   'Calcium, Ca', 'Calcium'),             grams),
+    iron:      sc(gn(n, 'iron',        'iron_mg',      'Iron, Fe', 'Iron'),                   grams),
+    vitD:      sc(vitDIU,                                                                      grams),
+    fiber:     sc(gn(n, 'fiber',       'fiber_g',      'Fiber, total dietary', 'dietary_fiber', 'total_fiber'), grams),
   };
 }
+
+// Helper to read a nutrient value for display (used in search results)
+const gnFood = (f, k) => {
+  const n = f?.nutrients?.per100g || f?.nutritional_metrics?.per100g || f?.nutrients || {};
+  return computeItem(f, 100)[k] || 0;
+};
 
 function total() {
   return recipe.reduce((t, item) => {
@@ -222,7 +314,7 @@ si.addEventListener('input', () => {
     <div class="search-item" onclick="addFood(${foods.indexOf(f)})">
       <div>
         <div class="search-item-name">${f.name}</div>
-        <div class="search-item-meta">${f.category || ''} · ${ri(gn(f,'energy_kcal'))} kcal/100g</div>
+        <div class="search-item-meta">${f.category || ''} · ${ri(gnFood(f,'kcal'))} kcal/100g</div>
       </div>
       <div class="search-item-meta">${f.fndds_metadata?.food_code || ''}</div>
     </div>`).join('');
@@ -242,18 +334,27 @@ function setGrams(i, v) { recipe[i].grams = parseInt(v); render(); }
 
 // ── Tags ──────────────────────────────────────────────────────────────────────
 function tags(food) {
-  const p = food.properties || {}, lc = food.longCovidRelevance || {}, fc = food.functionalCompounds || {};
+  const p  = food.properties          || {};
+  const lc = food.longCovidRelevance  || {};
+  const fc = food.functionalCompounds || {};
+
+  // histamine: check properties.histamine first, then longCovidRelevance.histamineResponse
+  const histamine = p.histamine || (lc.histamineResponse === 'high' ? 'high' : lc.histamineResponse === 'moderate' ? 'moderate' : p.histamine);
+  // omega3: check functionalCompounds.omega3, also longCovidRelevance may have it
+  const omega3 = fc.omega3 || fc.omega_3 || lc.omega3;
+
   const t = [];
-  if (p.histamine === 'high')      t.push(['high histamine','tag-red']);
-  if (p.histamine === 'moderate')  t.push(['mod histamine','tag-warn']);
-  if (p.fodmap === 'high')         t.push(['high FODMAP','tag-warn']);
-  if (p.oxalates === 'high')       t.push(['high oxalates','tag-warn']);
-  if (p.nightshade)                t.push(['nightshade','tag-amber']);
-  if (lc.antiInflammatory==='high')t.push(['anti-inflam','tag-ok']);
-  if (lc.mitochondrialSupport==='high') t.push(['mito support','tag-ok']);
-  if (fc.omega3==='high')          t.push(['omega-3','tag-info']);
-  if (fc.carotenoids==='high')     t.push(['carotenoids','tag-info']);
-  if (p.histamine==='low'&&p.fodmap==='low') t.push(['MCAS-safe','tag-ok']);
+  if (histamine === 'high')            t.push(['high histamine','tag-red']);
+  if (histamine === 'moderate')        t.push(['mod histamine','tag-warn']);
+  if (p.fodmap === 'high')             t.push(['high FODMAP','tag-warn']);
+  if (p.oxalates === 'high')           t.push(['high oxalates','tag-warn']);
+  if (p.nightshade)                    t.push(['nightshade','tag-amber']);
+  if (lc.antiInflammatory === 'high')  t.push(['anti-inflam','tag-ok']);
+  if (lc.mitochondrialSupport === 'high') t.push(['mito support','tag-ok']);
+  if (omega3 === 'high')               t.push(['omega-3','tag-info']);
+  if (fc.carotenoids === 'high')       t.push(['carotenoids','tag-info']);
+  // MCAS-safe: low histamine AND low FODMAP
+  if (histamine === 'low' && p.fodmap === 'low') t.push(['MCAS-safe','tag-ok']);
   return t;
 }
 
@@ -348,14 +449,16 @@ function renderFlags() {
   const c = {hi:0,hm:0,fodmap:0,ox:0,ns:0,ai:0,mito:0,om3:0};
   recipe.forEach(({food:f}) => {
     const p=f.properties||{}, lc=f.longCovidRelevance||{}, fc=f.functionalCompounds||{};
-    if(p.histamine==='high') c.hi++;
-    if(p.histamine==='moderate') c.hm++;
+    const histamine = p.histamine || (lc.histamineResponse === 'high' ? 'high' : lc.histamineResponse === 'moderate' ? 'moderate' : '');
+    const omega3 = fc.omega3 || fc.omega_3 || lc.omega3;
+    if(histamine==='high') c.hi++;
+    if(histamine==='moderate') c.hm++;
     if(p.fodmap==='high') c.fodmap++;
     if(p.oxalates==='high') c.ox++;
     if(p.nightshade) c.ns++;
     if(lc.antiInflammatory==='high') c.ai++;
     if(lc.mitochondrialSupport==='high') c.mito++;
-    if(fc.omega3==='high') c.om3++;
+    if(omega3==='high') c.om3++;
   });
   const flags = [
     {l:'High histamine', v:c.hi,  bg:c.hi>0?'var(--red-light)':'var(--surface2)',   dot:c.hi>0?'#a32020':'var(--text3)',  tc:c.hi>0?'var(--red)':'var(--text2)'},
