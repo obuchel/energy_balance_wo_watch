@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recipe Nutrient Calculator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f5f2ed;--surface:#fffefb;--surface2:#f0ede6;
+  --border:#ddd9d0;--border-strong:#c4bfb4;
+  --text:#1a1815;--text2:#6b6660;--text3:#9e9890;
+  --accent:#2d5a3d;--accent-light:#e8f0eb;
+  --warn:#c4541a;--warn-light:#fef0e8;
+  --blue:#1a3a5c;--blue-light:#e8eef5;
+  --amber:#7a5c1e;--amber-light:#fdf5e0;
+  --red:#a32020;--red-light:#fdecea;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:1.5rem;font-size:14px;}
+.app-header{margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:1rem;flex-wrap:wrap;}
+.app-title{font-family:'Instrument Serif',serif;font-size:24px;color:var(--text);font-weight:400;}
+.app-subtitle{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);letter-spacing:.05em;}
+.layout{display:grid;grid-template-columns:1fr 360px;gap:1.25rem;max-width:1140px;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.panel-header{padding:.65rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2);}
+.panel-title{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--text2);text-transform:uppercase;}
+.search-wrap{padding:.9rem 1.1rem;border-bottom:1px solid var(--border);position:relative;}
+.search-input{width:100%;padding:7px 12px 7px 32px;border:1px solid var(--border);border-radius:7px;background:var(--bg);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none;transition:border-color .15s;}
+.search-input:focus{border-color:var(--accent);}
+.search-input::placeholder{color:var(--text3);}
+.search-icon{position:absolute;left:20px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;}
+.search-results{position:absolute;top:calc(100% - 2px);left:1.1rem;right:1.1rem;background:var(--surface);border:1px solid var(--border-strong);border-radius:8px;z-index:200;max-height:260px;overflow-y:auto;display:none;box-shadow:0 6px 20px rgba(0,0,0,.1);}
+.search-results.open{display:block;}
+.search-item{padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.search-item:last-child{border-bottom:none;}
+.search-item:hover{background:var(--accent-light);}
+.search-item-name{font-size:13px;color:var(--text);font-weight:500;}
+.search-item-meta{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);white-space:nowrap;}
+.ingredient-list{padding:.25rem 0;min-height:180px;}
+.ingredient-empty{padding:3rem 1.1rem;text-align:center;color:var(--text3);font-size:13px;font-style:italic;}
+.ingredient-row{padding:.8rem 1.1rem;border-bottom:1px solid var(--border);transition:background .1s;}
+.ingredient-row:last-child{border-bottom:none;}
+.ingredient-row:hover{background:var(--surface2);}
+.ing-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.4rem;gap:8px;}
+.ing-name{font-size:13px;font-weight:500;color:var(--text);flex:1;line-height:1.35;}
+.ing-kcal{font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);font-weight:500;white-space:nowrap;}
+.ing-remove{background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;padding:0 0 0 6px;transition:color .15s;line-height:1;}
+.ing-remove:hover{color:var(--warn);}
+.ing-slider-row{display:flex;align-items:center;gap:10px;}
+.ing-slider{flex:1;-webkit-appearance:none;height:3px;background:var(--border);border-radius:2px;outline:none;cursor:pointer;}
+.ing-slider::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;}
+.ing-slider::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;}
+.ing-grams{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);min-width:52px;text-align:right;}
+.ing-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:.4rem;}
+.ing-tag{font-size:10px;padding:1px 6px;border-radius:4px;font-family:'DM Mono',monospace;font-weight:500;}
+.tag-warn{background:var(--warn-light);color:var(--warn);}
+.tag-ok{background:var(--accent-light);color:var(--accent);}
+.tag-info{background:var(--blue-light);color:var(--blue);}
+.tag-amber{background:var(--amber-light);color:var(--amber);}
+.tag-red{background:var(--red-light);color:var(--red);}
+.ing-nutrients{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:.45rem;}
+.ing-nut-item{background:var(--bg);border-radius:4px;padding:3px 6px;text-align:center;}
+.ing-nut-label{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);display:block;}
+.ing-nut-val{font-family:'DM Mono',monospace;font-size:11px;color:var(--text);font-weight:500;display:block;}
+.summary-kcal{padding:1.1rem;text-align:center;border-bottom:1px solid var(--border);}
+.kcal-number{font-family:'Instrument Serif',serif;font-size:52px;color:var(--accent);line-height:1;}
+.kcal-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-top:3px;}
+.macro-grid{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border);}
+.macro-item{padding:.75rem .5rem;text-align:center;border-right:1px solid var(--border);}
+.macro-item:last-child{border-right:none;}
+.macro-val{font-family:'DM Mono',monospace;font-size:17px;font-weight:500;color:var(--text);display:block;}
+.macro-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px;display:block;}
+.donut-wrap{padding:.9rem 1.1rem;display:flex;align-items:center;gap:1rem;border-bottom:1px solid var(--border);}
+.donut-legend{flex:1;}
+.donut-leg-item{display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:12px;color:var(--text2);}
+.donut-leg-swatch{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+.nutrient-bars{padding:.9rem 1.1rem;border-bottom:1px solid var(--border);}
+.nut-section-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.6rem;}
+.nut-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.nut-bar-label{font-size:11px;color:var(--text2);min-width:72px;}
+.nut-bar-bg{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+.nut-bar-fg{height:100%;border-radius:3px;transition:width .35s ease;}
+.nut-bar-val{font-family:'DM Mono',monospace;font-size:10px;color:var(--text2);min-width:52px;text-align:right;}
+.nut-bar-pct{font-family:'DM Mono',monospace;font-size:10px;min-width:32px;text-align:right;}
+.flags-section{padding:.9rem 1.1rem;}
+.flags-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.flag-item{padding:5px 8px;border-radius:6px;display:flex;align-items:center;gap:6px;}
+.flag-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.flag-name{font-size:10px;font-weight:500;}
+.flag-val{font-family:'DM Mono',monospace;font-size:10px;margin-left:auto;}
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="app-title">Recipe builder</div>
+  <div class="app-subtitle">FNDDS 2021–2023 · Long COVID enriched · live calorie compute</div>
+</div>
+
+<div class="layout">
+  <div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Ingredients</span>
+        <span id="ing-count" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);">0 added</span>
+      </div>
+      <div class="search-wrap">
+        <svg class="search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.2"/>
+          <path d="M9 9l3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        <input class="search-input" id="search-input" type="text" placeholder="Search foods (e.g. potato, chicken, salmon)…" autocomplete="off"/>
+        <div class="search-results" id="search-results"></div>
+      </div>
+      <div class="ingredient-list" id="ingredient-list">
+        <div class="ingredient-empty">Search and add ingredients to build your recipe.</div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Nutrition summary</span></div>
+      <div class="summary-kcal">
+        <div class="kcal-number" id="total-kcal">0</div>
+        <div class="kcal-label">total calories</div>
+      </div>
+      <div class="macro-grid">
+        <div class="macro-item"><span class="macro-val" id="total-protein">0g</span><span class="macro-label">Protein</span></div>
+        <div class="macro-item"><span class="macro-val" id="total-fat">0g</span><span class="macro-label">Fat</span></div>
+        <div class="macro-item"><span class="macro-val" id="total-carbs">0g</span><span class="macro-label">Carbs</span></div>
+      </div>
+      <div class="donut-wrap">
+        <svg id="donut-svg" width="90" height="90"></svg>
+        <div class="donut-legend" id="donut-legend"></div>
+      </div>
+      <div class="nutrient-bars">
+        <div class="nut-section-label">POTS / MCAS key nutrients</div>
+        <div id="nut-bars"></div>
+      </div>
+      <div class="flags-section">
+        <div class="nut-section-label" style="margin-bottom:.6rem;">Recipe flags</div>
+        <div class="flags-grid" id="flags-grid">
+          <div style="font-size:12px;color:var(--text3);font-style:italic;grid-column:span 2;">Add ingredients to see flags.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Sample data matching your exact schema ──────────────────────────────────
+const SAMPLE = [
+  { name:"Milk, NFS", category:"dairy", nutrients:{per100g:{energy_kcal:52,protein_g:3.4,fat_g:2.0,carbohydrate_g:4.8,sodium_mg:44,potassium_mg:150,magnesium_mg:11,calcium_mg:120,iron_mg:0.03,vitamin_d_iu:1.1,fiber_g:0}}, functionalCompounds:{omega3:"low",carotenoids:"low",polyphenols:"low"}, longCovidRelevance:{histamineResponse:"low",mitochondrialSupport:"low",antiInflammatory:"low"}, properties:{fodmap:"high",nightshade:false,oxalates:"low",histamine:"low"}, fndds_metadata:{food_code:11100000} },
+  { name:"Milk, whole", category:"dairy", nutrients:{per100g:{energy_kcal:61,protein_g:3.2,fat_g:3.3,carbohydrate_g:4.8,sodium_mg:43,potassium_mg:132,magnesium_mg:10,calcium_mg:113,iron_mg:0.03,vitamin_d_iu:1.1,fiber_g:0}}, functionalCompounds:{omega3:"low",carotenoids:"low",polyphenols:"low"}, longCovidRelevance:{histamineResponse:"low",mitochondrialSupport:"low",antiInflammatory:"low"}, properties:{fodmap:"high",nightshade:false,oxalates:"low",histamine:"low"}, fndds_metadata:{food_code:11100001} },
+  { name:"Chicken breast, roasted", category:"protein", nutrients:{per100g:{energy_kcal:165,protein_g:31,fat_g:3.6,carbohydrate_g:0,sodium_mg:74,potassium_mg:256,magnesium_mg:29,calcium_mg:15,iron_mg:1.0,vitamin_d_iu:4,fiber_g:0}}, functionalCompounds:{omega3:"low",carotenoids:"low",polyphenols:"low"}, longCovidRelevance:{histamineResponse:"low",mitochondrialSupport:"high",antiInflammatory:"low"}, properties:{fodmap:"low",nightshade:false,oxalates:"low",histamine:"low"}, fndds_metadata:{food_code:5010200} },
+  { name:"Salmon, Atlantic, cooked", category:"protein", nutrients:{per100g:{energy_kcal:208,protein_g:20,fat_g:13,carbohydrate_g:0,sodium_mg:59,potassium_mg:363,magnesium_mg:27,calcium_mg:12,iron_mg:0.8,vitamin_d_iu:526,fiber_g:0}}, functionalCompounds:{omega3:"high",carotenoids:"high",polyphenols:"low"}, longCovidRelevance:{histamineResponse:"high",mitochondrialSupport:"high",antiInflammatory:"high"}, properties:{fodmap:"low",nightshade:false,oxalates:"low",histamine:"high"}, fndds_metadata:{food_code:15076} },
+  { name:"Potato, boiled, no skin", category:"vegetable", nutrients:{per100g:{energy_kcal:87,protein_g:1.9,fat_g:0.1,carbohydrate_g:20,sodium_mg:5,potassium_mg:379,magnesium_mg:22,calcium_mg:8,iron_mg:0.3,vitamin_d_iu:0,fiber_g:1.8}}, functionalCompounds:{omega3:"low",carotenoids:"low",polyphenols:"moderate"}, longCovidRelevance:{histamineResponse:"low",mitochondrialSupport:"low",antiInflammatory:"low"}, properties:{fodmap:"low",nightshade:true,oxalates:"low",histamine:"low"}, fndds_metadata:{food_code:11362} },
+  { name:"Potato, raw", category:"vegetable", nutrients:{per100g:{energy_kcal:77,protein_g:2.0,fat_g:0.1,carbohydrate_g:17,sodium_mg:6,potassium_mg:425,magnesium_mg:23,calcium_mg:12,iron_mg:0.8,vitamin_d_iu:0,fiber_g:2.2}}, functionalCompounds:{omega3:"low",carotenoids:"low",polyphenols:"moderate"}, longCovidRelevance:{histamineResponse:"low",mitochondrialSupport:"low",antiInflammatory:"low"}, properties:{fodmap:"low",nightshade:true,oxalates:"low",histamine:"low"}, fndds_metadata:{food_code:11360} },
+  { name:"Spinach, raw", category:"vegetable", nutrients:{per100g:{energy_kcal:23,protein_g:2.9,fat_g:0.4,carbohydrate_g:3.6,sodium_mg:79,potassium_mg:558,magnesium_mg:79,calcium_mg:99,iron_mg:2.7,vitamin_d_iu:0,fiber_g:2.2}}, functionalCompounds:{omega3:"low",carotenoids:"high",polyphenols:"high"}, longCovidRelevance:{histamineResponse:"low",mitochondrialSupport:"high",antiInflammatory:"high"}, properties:{fodmap:"low",nightshade:false,oxalates:"high",histamine:"low"}, fndds_metadata:{food_code:11457} },
+  { name:"Tomato, raw", category:"vegetable", nutrients:{per100g:{energy_kcal:18,protein_g:0.9,fat_g:0.2,carbohydrate_g:3.9,sodium_mg:5,potassium_mg:237,magnesium_mg:11,calcium_mg:10,iron_mg:0.3,vitamin_d_iu:0,fiber_g:1.2}}, functionalCompounds:{omega3:"low",carotenoids:"high",polyphenols:"high"}, longCovidRelevance:{histamineResponse:"moderate",mitochondrialSupport:"low",antiInflammatory:"moderate"}, properties:{fodmap:"low",nightshade:true,oxalates:"low",histamine:"moderate"}, fndds_metadata:{food_code:11529} },
+  { name:"Tomato sauce, canned", category:"sauce", nutrients:{per100g:{energy_kcal:29,protein_g:1.3,fat_g:0.5,carbohydrate_g:6.3,sodium_mg:325,potassium_mg:321,magnesium_mg:20,calcium_mg:22,iron_mg:1.2,vitamin_d_iu:0,fiber_g:1.5}}, functionalCompounds:{omega3:"low",carotenoids:"high",polyphenols:"moderate"}, longCovidRelevance:{histamineResponse:"high",mitochondrialSupport:"low",antiInflammatory:"moderate"}, properties:{fodmap:"moderate",nightshade:true,oxalates:"low",histamine:"high"}, fndds_metadata:{food_code:11549} },
+  { name:"Olive oil", category:"fat", nutrients:{per100g:{energy_kcal:884,protein_g:0,fat_g:100,carbohydrate_g:0,sodium_mg:2,potassium_mg:1,magnesium_mg:0,calcium_mg:1,iron_mg:0.6,vitamin_d_iu:0,fiber_g:0}}, functionalCompounds:{omega3:"low",carotenoids:"low",polyphenols:"high"}, longCovidRelevance:{histamineResponse:"low",mitochondrialSupport:"moderate",antiInflammatory:"high"}, properties:{fodmap:"low",nightshade:false,oxalates:"low",histamine:"low"}, fndds_metadata:{food_code:4053} },
+  { name:"Lentils, boiled", category:"legume", nutrients:{per100g:{energy_kcal:116,protein_g:9.0,fat_g:0.4,carbohydrate_g:20,sodium_mg:2,potassium_mg:369,magnesium_mg:36,calcium_mg:19,iron_mg:3.3,vitamin_d_iu:0,fiber_g:7.9}}, functionalCompounds:{omega3:"low",carotenoids:"low",polyphenols:"moderate"}, longCovidRelevance:{histamineResponse:"low",mitochondrialSupport:"moderate",antiInflammatory:"moderate"}, properties:{fodmap:"high",nightshade:false,oxalates:"moderate",histamine:"low"}, fndds_metadata:{food_code:16069} },
+  { name:"Brown rice, cooked", category:"grain", nutrients:{per100g:{energy_kcal:112,protein_g:2.6,fat_g:0.9,carbohydrate_g:23,sodium_mg:5,potassium_mg:79,magnesium_mg:44,calcium_mg:10,iron_mg:0.5,vitamin_d_iu:0,fiber_g:1.8}}, functionalCompounds:{omega3:"low",carotenoids:"low",polyphenols:"low"}, longCovidRelevance:{histamineResponse:"low",mitochondrialSupport:"low",antiInflammatory:"low"}, properties:{fodmap:"low",nightshade:false,oxalates:"low",histamine:"low"}, fndds_metadata:{food_code:20041} },
+  { name:"Avocado, raw", category:"fruit", nutrients:{per100g:{energy_kcal:160,protein_g:2.0,fat_g:15,carbohydrate_g:9,sodium_mg:7,potassium_mg:485,magnesium_mg:29,calcium_mg:12,iron_mg:0.6,vitamin_d_iu:0,fiber_g:6.7}}, functionalCompounds:{omega3:"low",carotenoids:"moderate",polyphenols:"moderate"}, longCovidRelevance:{histamineResponse:"moderate",mitochondrialSupport:"moderate",antiInflammatory:"moderate"}, properties:{fodmap:"moderate",nightshade:false,oxalates:"low",histamine:"moderate"}, fndds_metadata:{food_code:9037} },
+  { name:"Egg, whole, cooked", category:"protein", nutrients:{per100g:{energy_kcal:155,protein_g:13,fat_g:11,carbohydrate_g:1.1,sodium_mg:124,potassium_mg:126,magnesium_mg:12,calcium_mg:56,iron_mg:1.8,vitamin_d_iu:87,fiber_g:0}}, functionalCompounds:{omega3:"low",carotenoids:"moderate",polyphenols:"low"}, longCovidRelevance:{histamineResponse:"low",mitochondrialSupport:"high",antiInflammatory:"low"}, properties:{fodmap:"low",nightshade:false,oxalates:"low",histamine:"low"}, fndds_metadata:{food_code:1123} },
+  { name:"Sweet potato, baked", category:"vegetable", nutrients:{per100g:{energy_kcal:90,protein_g:2.0,fat_g:0.1,carbohydrate_g:21,sodium_mg:36,potassium_mg:475,magnesium_mg:27,calcium_mg:38,iron_mg:0.7,vitamin_d_iu:0,fiber_g:3.3}}, functionalCompounds:{omega3:"low",carotenoids:"high",polyphenols:"moderate"}, longCovidRelevance:{histamineResponse:"low",mitochondrialSupport:"moderate",antiInflammatory:"moderate"}, properties:{fodmap:"moderate",nightshade:false,oxalates:"moderate",histamine:"low"}, fndds_metadata:{food_code:11508} },
+];
+
+// ── State ────────────────────────────────────────────────────────────────────
+let foods = [];
+let recipe = [];
+
+fetch('foods_updated.json')
+  .then(r => r.json())
+  .then(d => { foods = d; console.log(`Loaded ${d.length} real foods`); })
+  .catch(() => { foods = SAMPLE; console.log('Using sample data — place foods_updated.json next to this file'); });
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const sc = (v, g) => (v || 0) / 100 * g;
+const gn = (f, k) => f?.nutrients?.per100g?.[k] || 0;
+const r1 = v => Math.round(v * 10) / 10;
+const ri = v => Math.round(v);
+
+function computeItem(food, grams) {
+  const n = food.nutrients?.per100g || {};
+  return {
+    kcal: sc(n.energy_kcal, grams), protein: sc(n.protein_g, grams),
+    fat: sc(n.fat_g, grams), carbs: sc(n.carbohydrate_g, grams),
+    sodium: sc(n.sodium_mg, grams), potassium: sc(n.potassium_mg, grams),
+    magnesium: sc(n.magnesium_mg, grams), calcium: sc(n.calcium_mg, grams),
+    iron: sc(n.iron_mg, grams), vitD: sc(n.vitamin_d_iu, grams),
+    fiber: sc(n.fiber_g, grams),
+  };
+}
+
+function total() {
+  return recipe.reduce((t, item) => {
+    const c = computeItem(item.food, item.grams);
+    Object.keys(c).forEach(k => t[k] = (t[k] || 0) + c[k]);
+    return t;
+  }, {});
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+const si = document.getElementById('search-input');
+const sr = document.getElementById('search-results');
+
+si.addEventListener('input', () => {
+  const q = si.value.trim().toLowerCase();
+  if (q.length < 2) { sr.classList.remove('open'); return; }
+  const hits = foods.filter(f =>
+    (f.name || '').toLowerCase().includes(q) ||
+    (f.name_lower || '').includes(q) ||
+    (f.search_tokens || []).some(t => t.includes(q))
+  ).slice(0, 12);
+  if (!hits.length) { sr.classList.remove('open'); return; }
+  sr.innerHTML = hits.map(f => `
+    <div class="search-item" onclick="addFood(${foods.indexOf(f)})">
+      <div>
+        <div class="search-item-name">${f.name}</div>
+        <div class="search-item-meta">${f.category || ''} · ${ri(gn(f,'energy_kcal'))} kcal/100g</div>
+      </div>
+      <div class="search-item-meta">${f.fndds_metadata?.food_code || ''}</div>
+    </div>`).join('');
+  sr.classList.add('open');
+});
+
+document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) sr.classList.remove('open'); });
+
+// ── Add / Remove ──────────────────────────────────────────────────────────────
+function addFood(idx) {
+  recipe.push({ food: foods[idx], grams: 100 });
+  si.value = ''; sr.classList.remove('open');
+  render();
+}
+function removeFood(i) { recipe.splice(i, 1); render(); }
+function setGrams(i, v) { recipe[i].grams = parseInt(v); render(); }
+
+// ── Tags ──────────────────────────────────────────────────────────────────────
+function tags(food) {
+  const p = food.properties || {}, lc = food.longCovidRelevance || {}, fc = food.functionalCompounds || {};
+  const t = [];
+  if (p.histamine === 'high')      t.push(['high histamine','tag-red']);
+  if (p.histamine === 'moderate')  t.push(['mod histamine','tag-warn']);
+  if (p.fodmap === 'high')         t.push(['high FODMAP','tag-warn']);
+  if (p.oxalates === 'high')       t.push(['high oxalates','tag-warn']);
+  if (p.nightshade)                t.push(['nightshade','tag-amber']);
+  if (lc.antiInflammatory==='high')t.push(['anti-inflam','tag-ok']);
+  if (lc.mitochondrialSupport==='high') t.push(['mito support','tag-ok']);
+  if (fc.omega3==='high')          t.push(['omega-3','tag-info']);
+  if (fc.carotenoids==='high')     t.push(['carotenoids','tag-info']);
+  if (p.histamine==='low'&&p.fodmap==='low') t.push(['MCAS-safe','tag-ok']);
+  return t;
+}
+
+// ── Render ingredients ────────────────────────────────────────────────────────
+function renderList() {
+  const el = document.getElementById('ingredient-list');
+  document.getElementById('ing-count').textContent = `${recipe.length} added`;
+  if (!recipe.length) {
+    el.innerHTML = '<div class="ingredient-empty">Search and add ingredients to build your recipe.</div>';
+    return;
+  }
+  el.innerHTML = recipe.map((item, i) => {
+    const c = computeItem(item.food, item.grams);
+    const t = tags(item.food);
+    return `<div class="ingredient-row">
+      <div class="ing-top">
+        <div class="ing-name">${item.food.name}</div>
+        <div class="ing-kcal">${ri(c.kcal)} kcal</div>
+        <button class="ing-remove" onclick="removeFood(${i})">×</button>
+      </div>
+      <div class="ing-slider-row">
+        <input class="ing-slider" type="range" min="5" max="500" step="5" value="${item.grams}"
+          oninput="setGrams(${i},this.value);this.nextElementSibling.textContent=this.value+'g'">
+        <span class="ing-grams">${item.grams}g</span>
+      </div>
+      <div class="ing-nutrients">
+        <div class="ing-nut-item"><span class="ing-nut-label">Sodium</span><span class="ing-nut-val">${ri(c.sodium)}mg</span></div>
+        <div class="ing-nut-item"><span class="ing-nut-label">Potassium</span><span class="ing-nut-val">${ri(c.potassium)}mg</span></div>
+        <div class="ing-nut-item"><span class="ing-nut-label">Magnesium</span><span class="ing-nut-val">${ri(c.magnesium)}mg</span></div>
+        <div class="ing-nut-item"><span class="ing-nut-label">Vit D</span><span class="ing-nut-val">${r1(c.vitD)} IU</span></div>
+      </div>
+      ${t.length ? `<div class="ing-tags">${t.map(([l,c])=>`<span class="ing-tag ${c}">${l}</span>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Render summary ────────────────────────────────────────────────────────────
+const TARGETS = {
+  sodium:    { label:'Sodium',    target:3000, unit:'mg', color:'#2d5a3d' },
+  potassium: { label:'Potassium', target:4700, unit:'mg', color:'#1a3a5c' },
+  magnesium: { label:'Magnesium', target:420,  unit:'mg', color:'#7a5c1e' },
+  calcium:   { label:'Calcium',   target:1000, unit:'mg', color:'#993556' },
+  iron:      { label:'Iron',      target:18,   unit:'mg', color:'#c4541a' },
+  vitD:      { label:'Vitamin D', target:600,  unit:'IU', color:'#534AB7' },
+  fiber:     { label:'Fiber',     target:28,   unit:'g',  color:'#0F6E56' },
+};
+
+function renderSummary() {
+  const t = total();
+  document.getElementById('total-kcal').textContent = ri(t.kcal || 0);
+  document.getElementById('total-protein').textContent = r1(t.protein||0) + 'g';
+  document.getElementById('total-fat').textContent = r1(t.fat||0) + 'g';
+  document.getElementById('total-carbs').textContent = r1(t.carbs||0) + 'g';
+  renderDonut(t); renderBars(t); renderFlags();
+}
+
+function renderDonut(t) {
+  const svg = d3.select('#donut-svg'); svg.selectAll('*').remove();
+  const pKcal = t.protein*4, fKcal = t.fat*9, cKcal = t.carbs*4;
+  const tot = pKcal+fKcal+cKcal;
+  const data = tot > 0
+    ? [{l:'Protein',v:pKcal,c:'#2d5a3d'},{l:'Fat',v:fKcal,c:'#c4541a'},{l:'Carbs',v:cKcal,c:'#1a3a5c'}]
+    : [{l:'',v:1,c:'#ddd9d0'}];
+  const g = svg.append('g').attr('transform','translate(45,45)');
+  const arc = d3.arc().innerRadius(26).outerRadius(40);
+  g.selectAll('path').data(d3.pie().value(d=>d.v).sort(null)(data)).join('path')
+    .attr('d',arc).attr('fill',d=>d.data.c).attr('stroke','#fffefb').attr('stroke-width',1.5);
+  document.getElementById('donut-legend').innerHTML = tot > 0
+    ? data.map(d=>`<div class="donut-leg-item"><div class="donut-leg-swatch" style="background:${d.c}"></div><span>${d.l}</span><span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;">${Math.round(d.v/tot*100)}%</span></div>`).join('')
+    : '<div style="font-size:12px;color:var(--text3);font-style:italic;">Add ingredients</div>';
+}
+
+function renderBars(t) {
+  document.getElementById('nut-bars').innerHTML = Object.entries(TARGETS).map(([k,cfg]) => {
+    const val = t[k]||0;
+    const pct = Math.min(100, Math.round(val/cfg.target*100));
+    const col = pct<30?'#c4541a':pct<60?'#7a5c1e':'#2d5a3d';
+    return `<div class="nut-bar-row">
+      <span class="nut-bar-label">${cfg.label}</span>
+      <div class="nut-bar-bg"><div class="nut-bar-fg" style="width:${pct}%;background:${col};"></div></div>
+      <span class="nut-bar-val">${r1(val)}${cfg.unit}</span>
+      <span class="nut-bar-pct" style="color:${col};">${pct}%</span>
+    </div>`;
+  }).join('');
+}
+
+function renderFlags() {
+  if (!recipe.length) {
+    document.getElementById('flags-grid').innerHTML = '<div style="font-size:12px;color:var(--text3);font-style:italic;grid-column:span 2;">Add ingredients to see flags.</div>';
+    return;
+  }
+  const c = {hi:0,hm:0,fodmap:0,ox:0,ns:0,ai:0,mito:0,om3:0};
+  recipe.forEach(({food:f}) => {
+    const p=f.properties||{}, lc=f.longCovidRelevance||{}, fc=f.functionalCompounds||{};
+    if(p.histamine==='high') c.hi++;
+    if(p.histamine==='moderate') c.hm++;
+    if(p.fodmap==='high') c.fodmap++;
+    if(p.oxalates==='high') c.ox++;
+    if(p.nightshade) c.ns++;
+    if(lc.antiInflammatory==='high') c.ai++;
+    if(lc.mitochondrialSupport==='high') c.mito++;
+    if(fc.omega3==='high') c.om3++;
+  });
+  const flags = [
+    {l:'High histamine', v:c.hi,  bg:c.hi>0?'var(--red-light)':'var(--surface2)',   dot:c.hi>0?'#a32020':'var(--text3)',  tc:c.hi>0?'var(--red)':'var(--text2)'},
+    {l:'Mod histamine',  v:c.hm,  bg:c.hm>1?'var(--warn-light)':'var(--surface2)',  dot:c.hm>1?'#c4541a':'var(--text3)',  tc:c.hm>1?'var(--warn)':'var(--text2)'},
+    {l:'FODMAP high',    v:c.fodmap,bg:c.fodmap>0?'var(--warn-light)':'var(--surface2)',dot:c.fodmap>0?'#c4541a':'var(--text3)',tc:c.fodmap>0?'var(--warn)':'var(--text2)'},
+    {l:'Oxalates high',  v:c.ox,  bg:c.ox>0?'var(--warn-light)':'var(--surface2)',   dot:c.ox>0?'#c4541a':'var(--text3)',  tc:c.ox>0?'var(--warn)':'var(--text2)'},
+    {l:'Nightshade',     v:c.ns,  bg:c.ns>0?'var(--amber-light)':'var(--surface2)',  dot:c.ns>0?'#7a5c1e':'var(--text3)',  tc:c.ns>0?'var(--amber)':'var(--text2)'},
+    {l:'Anti-inflam',    v:c.ai,  bg:c.ai>0?'var(--accent-light)':'var(--surface2)', dot:c.ai>0?'#2d5a3d':'var(--text3)',  tc:c.ai>0?'var(--accent)':'var(--text2)'},
+    {l:'Mito support',   v:c.mito,bg:c.mito>0?'var(--accent-light)':'var(--surface2)',dot:c.mito>0?'#2d5a3d':'var(--text3)',tc:c.mito>0?'var(--accent)':'var(--text2)'},
+    {l:'Omega-3 rich',   v:c.om3, bg:c.om3>0?'var(--blue-light)':'var(--surface2)',  dot:c.om3>0?'#1a3a5c':'var(--text3)', tc:c.om3>0?'var(--blue)':'var(--text2)'},
+  ];
+  document.getElementById('flags-grid').innerHTML = flags.map(f =>
+    `<div class="flag-item" style="background:${f.bg};">
+      <div class="flag-dot" style="background:${f.dot};"></div>
+      <span class="flag-name" style="color:${f.tc};">${f.l}</span>
+      <span class="flag-val" style="color:${f.tc};">${f.v}</span>
+    </div>`).join('');
+}
+
+function render() { renderList(); renderSummary(); }
+render();
+</script>
+</body>
+</html>
