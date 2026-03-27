@@ -108,3 +108,4 @@ temp/
 .env*
 **/.env*
 *~
+src/components/FoodTracker/foods_updated.json
