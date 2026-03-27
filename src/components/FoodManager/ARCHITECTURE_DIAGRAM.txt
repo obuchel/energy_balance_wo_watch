@@ -1,0 +1,246 @@
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      FOOD MANAGER ARCHITECTURE                               │
+│                                                                              │
+│  Standalone Admin Module for Food Database Management                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                           COMPONENT STRUCTURE                              ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+                         App.js (Main Router)
+                                 │
+                     <Route path="/food-manager">
+                                 │
+                                 ↓
+                    ┌────────────────────────┐
+                    │   FoodManager.js       │
+                    │  (Main Container)      │
+                    │                        │
+                    │  • Manages state       │
+                    │  • Loads Firebase data │
+                    │  • Loads FNDDS file    │
+                    │  • Routes between views│
+                    └────────────────────────┘
+                                 │
+              ┌──────────────────┼──────────────────┐
+              │                  │                   │
+              ↓                  ↓                   ↓
+    ┌─────────────────┐ ┌──────────────┐ ┌──────────────────┐
+    │  FoodList.js    │ │FoodEditor.js │ │FNDDSComparison.js│
+    │                 │ │              │ │                  │
+    │ • Display foods │ │ • Edit food  │ │ • Compare data   │
+    │ • Search/filter │ │ • Update     │ │ • Show match info│
+    │ • Sort          │ │   nutrients  │ │ • Highlight diffs│
+    └─────────────────┘ └──────────────┘ └──────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════
+
+                           DATA FLOW DIAGRAM
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                              DATA SOURCES                                  ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+    Firebase Firestore                     Public Folder
+    ┌──────────────┐                      ┌─────────────────────┐
+    │   /foods     │                      │ FNDDS JSON File     │
+    │              │                      │                     │
+    │ • name       │                      │ • Updated nutrients │
+    │ • category   │                      │ • Match metadata    │
+    │ • nutrients  │                      │ • Match scores      │
+    │ • metadata   │                      │ • Food codes        │
+    └──────┬───────┘                      └──────────┬──────────┘
+           │                                         │
+           │                                         │
+           └───────────────┬─────────────────────────┘
+                           │
+                           ↓
+                  ┌────────────────────┐
+                  │  FoodManager.js    │
+                  │                    │
+                  │  loads & combines  │
+                  └────────┬───────────┘
+                           │
+              ┌────────────┼────────────┐
+              │            │            │
+              ↓            ↓            ↓
+         FoodList     FoodEditor   Comparison
+
+═══════════════════════════════════════════════════════════════════════════
+
+                          USER INTERACTION FLOW
+
+   ┌─────────────────────────────────────────────────────────────┐
+   │  1. Access /food-manager URL                                │
+   └──────────────────────┬──────────────────────────────────────┘
+                          │
+                          ↓
+   ┌─────────────────────────────────────────────────────────────┐
+   │  2. View Statistics Dashboard                               │
+   │     • Total Foods                                           │
+   │     • Foods with FNDDS                                      │
+   │     • Modified by FNDDS                                     │
+   │     • Match Rate %                                          │
+   └──────────────────────┬──────────────────────────────────────┘
+                          │
+                          ↓
+   ┌─────────────────────────────────────────────────────────────┐
+   │  3. Browse Food List                                        │
+   │     • Search by name                                        │
+   │     • Filter by FNDDS status                                │
+   │     • Sort by various fields                                │
+   │     • Filter by category                                    │
+   └──────┬────────────────────────┬─────────────────────────────┘
+          │                        │
+          ↓                        ↓
+   ┌─────────────────┐    ┌──────────────────┐
+   │  4a. Edit Food  │    │ 4b. Compare Data │
+   │                 │    │                  │
+   │  • Change name  │    │  • View Firebase │
+   │  • Edit values  │    │    vs FNDDS      │
+   │  • See FNDDS    │    │  • See % diff    │
+   │    differences  │    │  • Match score   │
+   │  • Adopt FNDDS  │    │  • Food code     │
+   │    values       │    │                  │
+   └────────┬────────┘    └─────────┬────────┘
+            │                       │
+            ↓                       ↓
+   ┌─────────────────────────────────────────┐
+   │  5. Save Changes to Firebase            │
+   └─────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════
+
+                        KEY FEATURES MATRIX
+
+╔════════════════════════╦════════════════════════════════════════════╗
+║      Component         ║              Capabilities                   ║
+╠════════════════════════╬════════════════════════════════════════════╣
+║                        ║ • Load all foods from Firestore            ║
+║   FoodManager.js       ║ • Load FNDDS comparison data               ║
+║   (Main Container)     ║ • Calculate statistics                     ║
+║                        ║ • Route between views                      ║
+║                        ║ • Handle updates to Firebase               ║
+╠════════════════════════╬════════════════════════════════════════════╣
+║                        ║ • Display paginated food list              ║
+║   FoodList.js          ║ • Real-time search filtering               ║
+║   (List View)          ║ • Multiple filter options                  ║
+║                        ║ • Sort by name/category/score              ║
+║                        ║ • Show match quality badges                ║
+║                        ║ • Quick actions (Edit, Compare)            ║
+╠════════════════════════╬════════════════════════════════════════════╣
+║                        ║ • Edit basic info (name, category)         ║
+║   FoodEditor.js        ║ • Edit 30+ nutrient values                 ║
+║   (Editor View)        ║ • See FNDDS match metadata                 ║
+║                        ║ • Visual diff indicators                   ║
+║                        ║ • One-click "Use FNDDS" adoption           ║
+║                        ║ • Save to Firebase                         ║
+╠════════════════════════╬════════════════════════════════════════════╣
+║                        ║ • Side-by-side comparison                  ║
+║  FNDDSComparison.js    ║ • Show Firebase vs FNDDS values            ║
+║  (Comparison View)     ║ • Calculate % differences                  ║
+║                        ║ • Display match information                ║
+║                        ║ • Color-code differences                   ║
+║                        ║ • Summary statistics                       ║
+║                        ║ • Link to editor                           ║
+╚════════════════════════╩════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════════════════════════════
+
+                     MATCH SCORE INTERPRETATION
+
+    ┌──────────────────────────────────────────────────────────┐
+    │  Score Range  │   Badge    │  Interpretation              │
+    ├───────────────┼────────────┼──────────────────────────────┤
+    │  0.90 - 1.00  │ 🟢 Green   │ Excellent - Very confident   │
+    │  0.80 - 0.89  │ 🔵 Blue    │ Good - Confident match       │
+    │  0.70 - 0.79  │ 🟡 Yellow  │ Fair - Should review         │
+    │  0.60 - 0.69  │ 🟠 Orange  │ Poor - Needs review          │
+    │  No FNDDS     │ ⚪ Gray    │ Not matched                  │
+    └───────────────┴────────────┴──────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════
+
+                     VISUAL LAYOUT PREVIEW
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  🍽️ Food Database Manager                                   [Statistics] │
+│  Manage and compare food nutrient data                                  │
+│                                                                          │
+│  ┌────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐   │
+│  │  2,700     │ │     1,917    │ │    1,358     │ │      71%     │   │
+│  │Total Foods │ │ With FNDDS   │ │ Modified     │ │  Match Rate  │   │
+│  └────────────┘ └──────────────┘ └──────────────┘ └──────────────┘   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Food List                                                               │
+│                                                                          │
+│  ┌───────────────────────────────────────────────────┐                 │
+│  │  🔍 Search foods by name or category...           │                 │
+│  └───────────────────────────────────────────────────┘                 │
+│                                                                          │
+│  Sort: [Name ▼]  Filter: [All Foods ▼]  Category: [All Categories ▼]  │
+│                                                                          │
+│  Showing 2,700 of 2,700 foods                                           │
+│                                                                          │
+│  ┌──────────────┬────────┬─────────────┬───────┬──────┬─────────────┐ │
+│  │ Name         │Category│FNDDS Match  │ Score │ Code │ Actions     │ │
+│  ├──────────────┼────────┼─────────────┼───────┼──────┼─────────────┤ │
+│  │ Chicken Soup │ soup   │ Soup, chick │🟡 72% │58403 │✏️ Edit 🔍  │ │
+│  │ Pizza ✓      │ pizza  │ Pizza, meat │🟢 95% │27120 │✏️ Edit 🔍  │ │
+│  │ Apple        │ fruit  │ —           │⚪ —   │  —   │✏️ Edit      │ │
+│  └──────────────┴────────┴─────────────┴───────┴──────┴─────────────┘ │
+└─────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════
+
+                         TECHNOLOGY STACK
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║  Frontend          │ React 18+ with Hooks                                ║
+║  Routing           │ React Router v6                                     ║
+║  Backend           │ Firebase Firestore                                  ║
+║  Data Source       │ FNDDS 2021-2023 (USDA)                             ║
+║  Styling           │ Custom CSS with gradients                           ║
+║  State Management  │ React useState/useEffect                            ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════════════════════════════
+
+                      DEPLOYMENT CONSIDERATIONS
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│  🔒 SECURITY                                                              │
+│                                                                           │
+│  ⚠️  No Built-in Authentication                                          │
+│  ⚠️  Anyone with URL can access                                          │
+│                                                                           │
+│  Solutions:                                                               │
+│  1. Add <ProtectedRoute> wrapper (recommended)                           │
+│  2. Use Firebase security rules                                          │
+│  3. Deploy to private subdomain                                          │
+│  4. Keep in development only                                             │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│  ⚡ PERFORMANCE                                                           │
+│                                                                           │
+│  • Loads all foods at once (good for <1000 items)                        │
+│  • Consider pagination for larger datasets                               │
+│  • FNDDS file loaded once on mount                                       │
+│  • Updates write directly to Firebase                                    │
+└──────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════
+
+                          ACCESS URLS
+
+Development:
+http://localhost:3000/energy_balance_wo_watch/food-manager
+
+Production:
+https://obuchel.github.io/energy_balance_wo_watch/food-manager
+
+═══════════════════════════════════════════════════════════════════════════

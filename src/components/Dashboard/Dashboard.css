@@ -171,9 +171,9 @@
   transition: all 0.3s ease;
 }
 
-/* Make the quick actions card wider */
+/* Make the quick actions card appropriately sized for 2 columns */
 .quick-actions-card {
-  max-width: 800px;
+  max-width: 700px;
   margin: 0 auto;
   width: 100%;
 }
@@ -254,7 +254,9 @@
 .quick-actions {
   display: grid;
   gap: 20px;
-  grid-template-columns: repeat(3, 1fr); /* Force 3 equal columns */
+  grid-template-columns: repeat(2, 1fr); /* 2 equal columns for the 2 buttons */
+  max-width: 600px; /* Constrain width for better centering */
+  margin: 0 auto; /* Center the grid */
 }
 
 .action-button {
@@ -321,15 +323,6 @@
 .action-button.symptom:hover {
   border-color: rgba(245, 158, 11, 0.5);
   box-shadow: 0 8px 24px rgba(245, 158, 11, 0.2);
-}
-
-.action-button.activity {
-  border-color: rgba(6, 182, 212, 0.3);
-}
-
-.action-button.activity:hover {
-  border-color: rgba(6, 182, 212, 0.5);
-  box-shadow: 0 8px 24px rgba(6, 182, 212, 0.2);
 }
 
 /* ===== LOADING STATE OVERRIDE ===== */
@@ -414,8 +407,9 @@ div[style*="border: 2px dashed orange"] {
 
 @media (min-width: 769px) and (max-width: 1024px) {
   .quick-actions {
-    grid-template-columns: repeat(3, 1fr); /* Keep 3 columns for tablets */
+    grid-template-columns: repeat(2, 1fr); /* 2 columns for tablets */
     gap: 18px;
+    max-width: 500px; /* Slightly smaller max-width for tablets */
   }
   
   .quick-actions-card {

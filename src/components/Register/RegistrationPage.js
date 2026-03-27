@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, AlertCircle,  User, Mail, Lock, Calendar, Scale, Ruler } from 'lucide-react';
+import { Check,  User, Mail, Lock, Calendar, Scale, Ruler } from 'lucide-react';
 import "../Common.css";
 import './RegistrationPage.css';
 
@@ -10,23 +10,29 @@ import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firesto
 
 
 // Updated InfoBox component
-const InfoBox = ({ title, children, icon: Icon }) => (
-  <div className="info-box">
-    <div className="info-box-content">
-      {Icon && <Icon className="info-box-icon" />}
-      <div>
-        <h3 className="info-box-title">{title}</h3>
-        <p className="info-box-text">{children}</p>
-      </div>
-    </div>
-  </div>
-);
+
 
 const symptomOptions = [
   'Fatigue', 'Post-exertional malaise', 'Brain fog', 'Headaches', 
   'Shortness of breath', 'Heart palpitations', 'Dizziness', 'Joint/muscle pain',
   'Sleep disturbances', 'Temperature regulation issues', 'Digestive issues'
 ];
+
+// Conversion utilities
+const convertWeight = {
+  lbsToKg: (lbs) => lbs * 0.453592,
+  kgToLbs: (kg) => kg * 2.20462,
+};
+
+const convertHeight = {
+  feetInchesToCm: (feet, inches) => (feet * 12 + inches) * 2.54,
+  cmToFeetInches: (cm) => {
+    const totalInches = cm / 2.54;
+    const feet = Math.floor(totalInches / 12);
+    const inches = Math.round(totalInches % 12);
+    return { feet, inches };
+  },
+};
 
 function RegisterPage() {
   const navigate = useNavigate();
@@ -37,8 +43,11 @@ function RegisterPage() {
     confirmPassword: '',
     age: '',
     gender: '',
+    unitSystem: 'metric', // 'metric' or 'imperial'
     weight: '',
     height: '',
+    heightFeet: '',
+    heightInches: '',
     covidDate: '',
     covidDuration: '',
     severity: '',
@@ -230,168 +239,154 @@ function RegisterPage() {
     }
     
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
     }
   };
 
-  // Function to save user data to Firestore
-  const saveUserToDatabase = async (user, userData = formData) => {
-    try {
-      const userProfile = {
-        uid: user.uid,
-        name: userData.name.trim(),
-        email: userData.email.toLowerCase().trim(),
-        age: parseInt(userData.age),
-        gender: userData.gender,
-        weight: userData.weight ? parseFloat(userData.weight) : null,
-        height: userData.height ? parseFloat(userData.height) : null,
-        covidDate: userData.covidDate || null,
-        covidDuration: userData.covidDuration || null,
-        severity: userData.severity || null,
-        symptoms: userData.symptoms || [],
-        medicalConditions: userData.medicalConditions || null,
-        createdAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString(),
-        energyProfile: {
-          baselineCalculated: false,
-          currentEnergyLevel: 50,
-          energyEnvelope: null,
-          dailyEnergyBudget: null
-        },
-        preferences: {
-          notifications: true,
-          reminderFrequency: 'daily',
-          dataRetention: '1year'
-        }
-      };
-
-      await setDoc(doc(db, 'users', user.uid), userProfile);
-      console.log('User data saved successfully to Firestore');
-      return userProfile;
-    } catch (error) {
-      console.error('Error saving user data to Firestore:', error);
-      throw new Error('Failed to save user profile. Please try again.');
+  // Handle unit system change
+  const handleUnitSystemChange = (e) => {
+    const newSystem = e.target.value;
+    const oldSystem = formData.unitSystem;
+    
+    let updatedData = { unitSystem: newSystem };
+    
+    // Convert existing values if there are any
+    if (formData.weight) {
+      if (oldSystem === 'metric' && newSystem === 'imperial') {
+        // Convert kg to lbs
+        updatedData.weight = Math.round(convertWeight.kgToLbs(parseFloat(formData.weight)) * 10) / 10;
+      } else if (oldSystem === 'imperial' && newSystem === 'metric') {
+        // Convert lbs to kg
+        updatedData.weight = Math.round(convertWeight.lbsToKg(parseFloat(formData.weight)) * 10) / 10;
+      }
     }
+    
+    if (newSystem === 'imperial' && formData.height) {
+      // Converting from metric to imperial
+      const { feet, inches } = convertHeight.cmToFeetInches(parseFloat(formData.height));
+      updatedData.heightFeet = feet;
+      updatedData.heightInches = inches;
+      updatedData.height = '';
+    } else if (newSystem === 'metric' && (formData.heightFeet || formData.heightInches)) {
+      // Converting from imperial to metric
+      const feet = parseFloat(formData.heightFeet) || 0;
+      const inches = parseFloat(formData.heightInches) || 0;
+      updatedData.height = Math.round(convertHeight.feetInchesToCm(feet, inches));
+      updatedData.heightFeet = '';
+      updatedData.heightInches = '';
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      ...updatedData
+    }));
   };
 
-  // Check if email already exists
-  const checkEmailExists = async (email) => {
-    try {
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', email.toLowerCase()));
-      const querySnapshot = await getDocs(q);
-      return !querySnapshot.empty;
-    } catch (error) {
-      console.error('Error checking email existence:', error);
-      return false;
-    }
-  };
-
-  // Handle registration submission
+  // Submit handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!validateStep1()) {
       return;
     }
-    
+
     setLoading(true);
     setErrors({});
-    
+
     try {
-      const cleanEmail = formData.email.trim().toLowerCase();
-      const cleanPassword = formData.password.trim();
+      // Check if email already exists
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('email', '==', formData.email.toLowerCase()));
+      const querySnapshot = await getDocs(q);
       
-      console.log('Starting registration process...');
-      
-      if (cleanPassword.length < 6) {
-        throw new Error('Password must be at least 6 characters long');
-      }
-      
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-        throw new Error('Please enter a valid email address');
+      if (!querySnapshot.empty) {
+        setErrors({ submit: 'An account with this email already exists' });
+        setLoading(false);
+        return;
       }
 
-      console.log('Checking email availability...');
-      const emailExists = await checkEmailExists(cleanEmail);
-      if (emailExists) {
-        throw new Error('This email address is already registered. Please use a different email or try signing in.');
-      }
-
-      console.log('Creating Firebase Auth user...');
+      // Create Firebase Auth user
       const userCredential = await createUserWithEmailAndPassword(
         auth, 
-        cleanEmail, 
-        cleanPassword
+        formData.email, 
+        formData.password
       );
+
+      // Convert height and weight to metric for storage (standardization)
+      let weightInKg = formData.weight ? parseFloat(formData.weight) : null;
+      let heightInCm = formData.height ? parseFloat(formData.height) : null;
       
-      const user = userCredential.user;
-      console.log('Firebase Auth user created successfully:', user.uid);
-      
-      const updatedFormData = { ...formData, email: cleanEmail };
-      
-      console.log('Saving user data to Firestore...');
-      await saveUserToDatabase(user, updatedFormData);
-      
-      console.log('Registration completed successfully');
-      
-      alert('Registration successful! Welcome to Energy Balance.');
-      
-      navigate('/login', { 
-        state: { 
-          message: 'Registration successful! Please sign in with your new account.',
-          email: cleanEmail
+      if (formData.unitSystem === 'imperial') {
+        if (weightInKg) {
+          weightInKg = convertWeight.lbsToKg(weightInKg);
         }
-      });
-      
+        if (formData.heightFeet || formData.heightInches) {
+          const feet = parseFloat(formData.heightFeet) || 0;
+          const inches = parseFloat(formData.heightInches) || 0;
+          heightInCm = convertHeight.feetInchesToCm(feet, inches);
+        }
+      }
+
+      // Save user data to Firestore
+      const userData = {
+        name: formData.name,
+        email: formData.email.toLowerCase(),
+        age: parseInt(formData.age),
+        gender: formData.gender,
+        unitSystem: formData.unitSystem,
+        weight: weightInKg ? Math.round(weightInKg * 10) / 10 : null,
+        height: heightInCm ? Math.round(heightInCm) : null,
+        covidDate: formData.covidDate || null,
+        covidDuration: formData.covidDuration || null,
+        severity: formData.severity || null,
+        symptoms: formData.symptoms,
+        medicalConditions: formData.medicalConditions || null,
+        createdAt: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+
+      // Store user data in localStorage
+      localStorage.setItem('userData', JSON.stringify({
+        id: userCredential.user.uid,
+        ...userData
+      }));
+
+      // Navigate to home page
+      navigate('/');
+
     } catch (error) {
-      console.error('Registration error:', error);
-      
-      let errorMessage = error.message || 'An error occurred during registration';
+      console.error('Error during registration:', error);
       
       if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'This email address is already registered. Please use a different email or try signing in.';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address format.';
+        setErrors({ submit: 'This email is already registered' });
       } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Password is too weak. Please choose a stronger password.';
-      } else if (error.code === 'auth/network-request-failed') {
-        errorMessage = 'Network error. Please check your internet connection and try again.';
+        setErrors({ submit: 'Password is too weak' });
+      } else {
+        setErrors({ submit: 'Registration failed. Please try again.' });
       }
-      
-      setErrors({ submit: errorMessage });
     } finally {
       setLoading(false);
     }
   };
 
-
   return (
-    <div className="registration-page">
-      <div className="registration-container">
-        <div className="registration-header">
-          <h1 className="registration-title">Join Energy Balance</h1>
-          <p className="registration-subtitle">Set up your personalized energy management system</p>
-        </div>
+    <div className="register-page">
+      <div className="register-container">
+        <div className="register-content">
+          <div className="register-header">
+            <h1 className="register-title">Create Your Account</h1>
+            <p className="register-subtitle">
+              Join our Long COVID tracking community
+            </p>
+          </div>
 
-        <div className="bg-animation">
-          <div className="floating-shape shape-1"></div>
-          <div className="floating-shape shape-2"></div>
-          <div className="floating-shape shape-3"></div>
-        </div>
-     
-        <div className="registration-card fade-in-up">
-          <div>
-            <h2 className="step-title">Tell us about yourself</h2>
-            
-            <InfoBox title="Why we need this information" icon={AlertCircle}>
-              Your personal details help our system calculate your energy baseline, recovery capacity, 
-              and create a customized energy envelope specifically for your condition. All information 
-              is stored securely and processed locally on your device.
-            </InfoBox>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="form-grid two-cols">
+          <div className="register-form-container">
+            <form onSubmit={handleSubmit} className="register-form">
+              <div className="form-sections">
                 <div className="form-group">
                   <User className="form-label-icon" />
                   <input
@@ -400,7 +395,8 @@ function RegisterPage() {
                     value={formData.name}
                     onChange={handleInputChange}
                     className={`form-input ${errors.name ? 'error' : ''}`}
-                    placeholder="Enter your full name"
+                    placeholder="Your full name"
+                    autoComplete="name"
                   />
                   <label className="form-label">Full Name *</label>
                   {errors.name && <p className="error-message">{errors.name}</p>}
@@ -479,10 +475,25 @@ function RegisterPage() {
                     <option value="other">Other</option>
                     <option value="prefer-not-to-say">Prefer not to say</option>
                   </select>
-                  <label className="form-label">Gender</label>
+                  <label className="form-label">Gender *</label>
                   {errors.gender && <p className="error-message">{errors.gender}</p>}
                 </div>
 
+                {/* Unit System Selector */}
+                <div className="form-group">
+                  <select
+                    name="unitSystem"
+                    value={formData.unitSystem}
+                    onChange={handleUnitSystemChange}
+                    className="form-select"
+                  >
+                    <option value="metric">Metric (kg, cm)</option>
+                    <option value="imperial">Imperial (lbs, ft/in)</option>
+                  </select>
+                  <label className="form-label">Measurement System</label>
+                </div>
+
+                {/* Weight Field - changes based on unit system */}
                 <div className="form-group">
                   <Scale className="form-label-icon" />
                   <input
@@ -494,21 +505,56 @@ function RegisterPage() {
                     placeholder="Optional"
                     step="0.1"
                   />
-                  <label className="form-label">Weight (kg)</label>
+                  <label className="form-label">
+                    Weight ({formData.unitSystem === 'metric' ? 'kg' : 'lbs'})
+                  </label>
                 </div>
 
-                <div className="form-group">
-                  <Ruler className="form-label-icon" />
-                  <input
-                    type="number"
-                    name="height"
-                    value={formData.height}
-                    onChange={handleInputChange}
-                    className="form-input"
-                    placeholder="Optional"
-                  />
-                  <label className="form-label">Height (cm)</label>
-                </div>
+                {/* Height Fields - different for metric vs imperial */}
+                {formData.unitSystem === 'metric' ? (
+                  <div className="form-group">
+                    <Ruler className="form-label-icon" />
+                    <input
+                      type="number"
+                      name="height"
+                      value={formData.height}
+                      onChange={handleInputChange}
+                      className="form-input"
+                      placeholder="Optional"
+                    />
+                    <label className="form-label">Height (cm)</label>
+                  </div>
+                ) : (
+                  <div className="form-grid two-cols">
+                    <div className="form-group">
+                      <Ruler className="form-label-icon" />
+                      <input
+                        type="number"
+                        name="heightFeet"
+                        value={formData.heightFeet}
+                        onChange={handleInputChange}
+                        className="form-input"
+                        placeholder="Optional"
+                        min="0"
+                        max="8"
+                      />
+                      <label className="form-label">Height (feet)</label>
+                    </div>
+                    <div className="form-group">
+                      <input
+                        type="number"
+                        name="heightInches"
+                        value={formData.heightInches}
+                        onChange={handleInputChange}
+                        className="form-input"
+                        placeholder="Optional"
+                        min="0"
+                        max="11"
+                      />
+                      <label className="form-label">Height (inches)</label>
+                    </div>
+                  </div>
+                )}
 
                 <div className="form-group">
                   <Calendar className="form-label-icon" />
@@ -631,7 +677,6 @@ function RegisterPage() {
       </div>
 
    
-
 
     </div>
   );

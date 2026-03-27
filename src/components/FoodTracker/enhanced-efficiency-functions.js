@@ -68,9 +68,12 @@ export const calculateFoodEfficiency = (mealData, userProfile) => {
   const macroBalance = Math.min(100, (proteinFactor + carbFactor + fatFactor) * 10);
   let efficiency = macroBalance * timeFactor * mealTypeFactor;
   
-  // Long COVID adjustments - FIXED to use metabolic efficiency factor
-  if (mealData.longCovidAdjust && userProfile?.hasLongCovid) {
-    const severityFactor = getMetabolicEfficiencyFactor(userProfile.longCovidSeverity); // CHANGED: Use metabolic efficiency factor
+  // Long COVID adjustments - detect from any profile field
+  const covidSeverity = userProfile?.covid_severity || userProfile?.longCovidSeverity || null;
+  const hasCovidCondition = (covidSeverity && covidSeverity !== 'None') || userProfile?.hasLongCovid === true;
+  
+  if (hasCovidCondition) {
+    const severityFactor = getMetabolicEfficiencyFactor(covidSeverity || 'moderate');
     efficiency *= severityFactor;
     
     // Boost for beneficial foods

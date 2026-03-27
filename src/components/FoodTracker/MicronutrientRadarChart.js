@@ -17,6 +17,7 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
     'calcium',
     'iron',
     'magnesium',
+   // 'manganese',
     'zinc',
     'potassium',
     'phosphorus',
@@ -38,6 +39,7 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
     'calcium': 'Calcium',
     'iron': 'Iron',
     'magnesium': 'Magnesium',
+   // 'manganese': 'Manganese',
     'phosphorus': 'Phosphorus',
     'potassium': 'Potassium',
     'sodium': 'Sodium',
@@ -71,13 +73,13 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
   }
 
   // Use only the available nutrients for display (dynamic chart)
-  const displayNutrients = availableMicronutrients.slice(0, 8); // Limit to 8 for better visibility
+  const displayNutrients = availableMicronutrients.slice(0, 20); // Limit to 12 to show key minerals (iron, zinc, manganese)
   
   const chartSize = 300;
   const centerX = chartSize / 2;
   const centerY = chartSize / 2;
   const radius = 80;
-  const labelRadius = radius + 35;
+  const labelRadius = radius + 10;
   
   // Calculate angles for only the nutrients we're displaying
   const totalAxes = displayNutrients.length;
@@ -255,7 +257,7 @@ const MicronutrientRadarChart = ({ micronutrients = {}, selectedMeal = null }) =
             <div key={index} className="micronutrient-item">
               <span className="nutrient-name">{point.label}:</span>
               <span className="nutrient-value">
-                {point.value < 1 ? point.value.toFixed(2) : point.value.toFixed(1)} {point.unit}
+                {point.value < 1 ? point.value.toFixed(2) : point.value.toFixed(1)} {point.unit.split('_')[0]}
               </span>
             </div>
           ))}

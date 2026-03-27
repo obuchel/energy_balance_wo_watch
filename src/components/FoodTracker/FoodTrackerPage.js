@@ -1,28 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  collection, 
-  query, 
-  getDocs, 
-  addDoc, 
-  deleteDoc,
-  updateDoc,
-  doc,
-  getDoc,
-  Timestamp, 
-  orderBy, 
-  limit
-} from 'firebase/firestore';
+import { collection, query, getDocs, addDoc, deleteDoc, updateDoc, doc, getDoc, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase-config';
 import "../Common.css";
 import './FoodTrackerPage.css';
 
-// Import separated tab components
 import AddFoodTab from './AddFoodTab';
 import FoodJournalTab from './FoodJournalTab';
 import { AnalysisTab } from './FoodTrackerAnalysis';
 import MicronutrientRadarChart from './MicronutrientRadarChart';
-import VitaminTimeSeriesTab from './VitaminTimeSeriesTab'; // ADD THIS LINE
+import VitaminTimeSeriesTab from './VitaminTimeSeriesTab';
+import { ensureCompatibleFormat, getMacrosForServing, getMicronutrientsForServing, parseServingAmount } from './longCovidDataAdapter';
+import foodSearchService from './foodSearchService';
+
+const GRAMS_PER_OUNCE = 28.3495;
+
+const convertWeight = {
+  ozToG: (oz) => oz * GRAMS_PER_OUNCE,
+  gToOz: (g) => g / GRAMS_PER_OUNCE,
+};
 
 // TIMEZONE UTILITIES - Centralized timezone handling
 const getUserTimezone = () => {
@@ -125,9 +121,14 @@ function FoodTrackerPage() {
   const navigate = useNavigate();
 
   // State declarations
-  const [allFoodsCache, setAllFoodsCache] = useState([]);
-  const [pyodideStatus] = useState('unavailable');
+  //const [allFoodsCache, setAllFoodsCache] = useState([]);
+  //const [pyodideStatus] = useState('unavailable');
   const [searchFocused, setSearchFocused] = useState(false);
+
+  // Search service state
+  const [searchServiceReady, setSearchServiceReady] = useState(false);
+  const [searchServiceError, setSearchServiceError] = useState('');
+  const [initProgress, setInitProgress] = useState('');
 
   // User and authentication state
   const [currentUser, setCurrentUser] = useState(null);
@@ -153,7 +154,8 @@ function FoodTrackerPage() {
   const [mealType, setMealType] = useState('Breakfast');
   const [time, setTime] = useState(() => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   const [date, setDate] = useState(() => getTodayInUserTimezone());
-  const [longCovidAdjust, setLongCovidAdjust] = useState(true);
+  // longCovidAdjust checkbox removed - Long COVID features are always active
+  // The app is purpose-built for Long COVID patients; profile.hasLongCovid controls severity adjustments
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
@@ -188,6 +190,33 @@ function FoodTrackerPage() {
   };
 
   const debouncedSearch = useDebounce(search, 300);
+
+  // Initialize search service on mount
+  useEffect(() => {
+    const initSearch = async () => {
+      try {
+        setInitProgress('Loading food database...');
+        // Get current path dynamically
+        const basePath = window.location.pathname.split('/').slice(0, 2).join('/');
+        const dataUrl = `${basePath}/foods_updated.json`;
+        await foodSearchService.initialize(dataUrl);
+        setSearchServiceReady(true);
+        setInitProgress('');
+        console.log('✅ Search service ready!');
+      } catch (error) {
+        console.error('Failed to initialize search:', error);
+        setSearchServiceError('Failed to load food database. Please refresh the page.');
+        setInitProgress('');
+      }
+    };
+
+    initSearch();
+
+    // Cleanup on unmount
+    return () => {
+      foodSearchService.terminate();
+    };
+  }, []);
 
   // Handle logout
   const handleLogout = async () => {
@@ -231,52 +260,64 @@ function FoodTrackerPage() {
 
   // Handle edit entry
   const handleEditEntry = (entry) => {
-    setFields({
-      name: entry.name,
-      protein: entry.protein,
-      carbs: entry.carbs,
-      fat: entry.fat,
-      calories: entry.calories,
-      serving: entry.serving || 100,
-      micronutrients: entry.micronutrients || {},
-      longCovidBenefits: entry.longCovidBenefits || [],
-      longCovidCautions: entry.longCovidCautions || [],
-      longCovidRelevance: entry.longCovidRelevance || {},
-    });
-
+    console.log('Editing entry:', entry);
+    
+    // Determine user's preferred unit system
+    const userUnitSystem = userProfile?.unitSystem || 'metric';
+    
+    // Entry is stored in grams, convert if user prefers imperial
+    let displayServing = entry.serving || 0;
+    let displayUnit = 'g';
+    
+    if (userUnitSystem === 'imperial') {
+      displayServing = Math.round(convertWeight.gToOz(displayServing) * 10) / 10;
+      displayUnit = 'oz';
+    }
+    
+    // Find the meal in database for full info
+    const findAndSetMeal = async () => {
+      try {
+        const results = await foodSearchService.search(entry.name, 10);
+        const meal = results.find(m => m.name === entry.name) || results[0];
+        
+        if (meal) {
+          const compatibleMeal = ensureCompatibleFormat(meal);
+          setSelectedMeal(compatibleMeal);
+          
+          // Set fields with converted values
+          setFields({
+            name: entry.name,
+            protein: entry.protein,
+            carbs: entry.carbs,
+            fat: entry.fat,
+            calories: entry.calories,
+            serving: displayServing, // Display in user's preferred unit
+            servingUnit: displayUnit,
+            servingInGrams: entry.serving, // Keep original grams value
+            servingDescription: entry.servingDescription,
+            visualEquivalent: entry.visualEquivalent,
+            servingReason: entry.servingReason,
+            servingTiming: entry.servingTiming,
+            micronutrients: entry.micronutrients || {},
+            longCovidBenefits: entry.longCovidBenefits || [],
+            longCovidCautions: entry.longCovidCautions || [],
+            longCovidRelevance: entry.longCovidRelevance || {}
+          });
+        }
+      } catch (err) {
+        console.error('Error finding meal for edit:', err);
+      }
+    };
+    
+    findAndSetMeal();
+    setSearch(entry.name);
     setMealType(entry.mealType);
     setTime(entry.time);
     setDate(entry.date);
-    setLongCovidAdjust(entry.longCovidAdjust || false);
-    setSearch(entry.name);
     setEditingEntry(entry);
-    
-    const originalMeal = allFoodsCache.find(meal => 
-      meal.name.toLowerCase() === entry.name.toLowerCase() || 
-      meal.id === entry.mealId
-    );
-    
-    if (originalMeal) {
-      setSelectedMeal(originalMeal);
-      console.log('Original meal found for editing:', originalMeal.name);
-    } else {
-      const mockMeal = {
-        name: entry.name,
-        nutritional_metrics: {
-          nutrients_per_100g: {
-            protein: { value: (entry.protein / (entry.serving || 100)) * 100 },
-            carbs: { value: (entry.carbs / (entry.serving || 100)) * 100 },
-            fat: { value: (entry.fat / (entry.serving || 100)) * 100 },
-            calories: { value: (entry.calories / (entry.serving || 100)) * 100 },
-          }
-        }
-      };
-      setSelectedMeal(mockMeal);
-      console.log('Created mock meal for editing:', entry.name);
-    }
-    
     setTab('Add Food');
   };
+  
 
   const handleLogFood = async () => {
     console.log('=== LOGGING FOOD ===');
@@ -296,23 +337,37 @@ function FoodTrackerPage() {
         throw new Error('Food name is required');
       }
 
-      const entryData = {
-        name: fields.name,
-        protein: parseFloat(fields.protein) || 0,
-        carbs: parseFloat(fields.carbs) || 0,
-        fat: parseFloat(fields.fat) || 0,
-        calories: parseFloat(fields.calories) || 0,
-        serving: parseFloat(fields.serving) || 100,
-        micronutrients: fields.micronutrients || {},
-        mealType,
-        time,
-        date,
-        longCovidAdjust,
-        longCovidBenefits: fields.longCovidBenefits || [],
-        longCovidCautions: fields.longCovidCautions || [],
-        longCovidRelevance: fields.longCovidRelevance || {},
-        mealId: selectedMeal?.id || null
-      };
+      let servingInGrams = parseFloat(fields.serving) || 100;
+const servingUnit = fields.servingUnit || 'g';
+
+if (servingUnit === 'oz') {
+  servingInGrams = convertWeight.ozToG(servingInGrams);
+  console.log(`Converted ${fields.serving}oz to ${servingInGrams.toFixed(1)}g for database storage`);
+}
+
+const entryData = {
+  name: fields.name,
+  protein: parseFloat(fields.protein) || 0,
+  carbs: parseFloat(fields.carbs) || 0,
+  fat: parseFloat(fields.fat) || 0,
+  calories: parseFloat(fields.calories) || 0,
+  serving: Math.round(servingInGrams * 10) / 10, // Always store in grams
+  servingUnit: 'g', // Always store as grams for consistency
+  servingDisplayed: fields.serving, // Original value user entered
+  servingDisplayedUnit: servingUnit, // Unit user used
+  servingDescription: fields.servingDescription || null,
+  visualEquivalent: fields.visualEquivalent || null,
+  servingReason: fields.servingReason || null,
+  servingTiming: fields.servingTiming || null,
+  micronutrients: fields.micronutrients || {},
+  mealType,
+  time,
+  date,
+  longCovidBenefits: fields.longCovidBenefits || [],
+  longCovidCautions: fields.longCovidCautions || [],
+  longCovidRelevance: fields.longCovidRelevance || {},
+  mealId: selectedMeal?.id || null
+};
 
       entryData.metabolicEfficiency = calculateMetabolicEfficiency(entryData);
 
@@ -370,7 +425,7 @@ function FoodTrackerPage() {
   };
 
   // Fetch user profile from Firestore
-  const fetchUserProfile = async (uid) => {
+  const fetchUserProfile = useCallback(async (uid) => {
     try {
       const userDocRef = doc(db, 'users', uid);
       const userDoc = await getDoc(userDocRef);
@@ -387,7 +442,7 @@ function FoodTrackerPage() {
       setError('Failed to load user profile');
       setUserProfile(null);
     }
-  };
+  }, []);
 
   // Authentication check function
   const checkUserAuthentication = useCallback(async () => {
@@ -414,7 +469,7 @@ function FoodTrackerPage() {
     } finally {
       setAuthLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, fetchUserProfile]);
 
   // Authentication effect
   useEffect(() => {
@@ -518,7 +573,7 @@ function FoodTrackerPage() {
     const macroBalance = Math.min(100, (proteinFactor + carbFactor + fatFactor) * 10);
     let efficiency = macroBalance * timeFactor * mealTypeFactor;
 
-    if (mealData.longCovidAdjust && userProfile?.hasLongCovid) {
+    if (userProfile?.hasLongCovid) {
       const severityFactors = {
         'mild': 0.95,
         'moderate': 0.85,
@@ -541,64 +596,225 @@ function FoodTrackerPage() {
     return Math.min(100, Math.max(0, efficiency));
   };
 
+  // Recalculate nutrients based on serving size
+  const recalculateNutrients = useCallback((newServing, unit = 'g') => {
+    if (!selectedMeal) {
+      console.log('No selected meal for recalculation');
+      return;
+    }
+    
+    const serving = parseFloat(newServing);
+    if (isNaN(serving) || serving <= 0) {
+      console.log('Invalid serving size for recalculation:', newServing);
+      return;
+    }
+    
+    const nutrients = selectedMeal.nutritional_metrics?.nutrients_per_100g || 
+                     selectedMeal.nutrients?.per100g || {};
+  
+    let ratio;
+    let servingInGrams = serving;
+    
+    // Convert to grams if needed (all nutrients are per 100g)
+    if (unit === 'oz') {
+      servingInGrams = convertWeight.ozToG(serving);
+      ratio = servingInGrams / 100;
+      console.log('Imperial conversion:', {
+        serving: serving + 'oz',
+        servingInGrams: servingInGrams.toFixed(1) + 'g',
+        ratio: ratio
+      });
+    } else if (unit === 'ml') {
+      const density = getDensityForFood(selectedMeal.name) || 1.0;
+      servingInGrams = serving * density;
+      ratio = servingInGrams / 100;
+      console.log('Liquid conversion:', {
+        serving: serving + 'ml',
+        density: density,
+        servingInGrams: servingInGrams + 'g',
+        ratio: ratio
+      });
+    } else {
+      // Already in grams
+      ratio = serving / 100;
+      console.log('Metric conversion:', {
+        serving: serving + 'g',
+        ratio: ratio
+      });
+    }
+    
+    console.log('Recalculating nutrients:', {
+      selectedMeal: selectedMeal.name,
+      newServing: serving,
+      unit: unit,
+      servingInGrams: servingInGrams.toFixed(1),
+      ratio: ratio
+    });
+  
+    setFields(prevFields => {
+      const updatedFields = { 
+        ...prevFields, 
+        serving: serving, // Keep in user's unit for display
+        servingUnit: unit,
+        servingInGrams: servingInGrams // Store for calculations
+      };
+  
+      if (nutrients.protein?.value !== undefined) {
+        updatedFields.protein = (nutrients.protein.value * ratio).toFixed(1);
+      }
+      if (nutrients.carbs?.value !== undefined) {
+        updatedFields.carbs = (nutrients.carbs.value * ratio).toFixed(1);
+      }
+      if (nutrients.fat?.value !== undefined) {
+        updatedFields.fat = (nutrients.fat.value * ratio).toFixed(1);
+      }
+      if (nutrients.calories?.value !== undefined) {
+        updatedFields.calories = (nutrients.calories.value * ratio).toFixed(0);
+      }
+  
+      updatedFields.micronutrients = {};
+      Object.entries(nutrients).forEach(([key, value]) => {
+        if (!['protein', 'carbs', 'fat', 'calories', 'name', 'unit'].includes(key) && value?.value !== undefined) {
+          updatedFields.micronutrients[key] = {
+            ...value,
+            value: (value.value * ratio).toFixed(1)
+          };
+        }
+      });
+  
+      console.log('Updated fields after recalculation:', updatedFields);
+      return updatedFields;
+    });
+  }, [selectedMeal]);
+
   // Enhanced handleSelectMeal function
   const handleSelectMeal = (meal) => {
-    console.log('handleSelectMeal called with:', meal.name);
+    console.log('=== Meal Selected ===');
+    console.log('Meal name:', meal.name);
+    console.log('Has longCovidServings:', !!meal.longCovidServings);
     
     setSelectedMeal(meal);
     setSearch(meal.name);
     setSuggestions([]);
     setSearchFocused(false);
     
-    const nutrients = meal.nutritional_metrics?.nutrients_per_100g || meal.nutrients?.per100g || {};
-    
+    // Determine default serving
     let defaultServing = 100;
     let defaultUnit = 'g';
-    let defaultDescription = '100g serving';
+    let defaultDescription = '100g';
     
-    if (meal.nutritional_metrics?.serving_options) {
+    // Check for longCovidServings first (new format)
+    if (meal.longCovidServings && meal.longCovidServings.length > 0) {
+      console.log('Using longCovidServings default');
+      const firstServing = meal.longCovidServings[1] || meal.longCovidServings[0]; // Use "Standard Recovery Portion" if available
+      const parsed = parseServingAmount(firstServing.amount);
+      defaultServing = parsed.weight;
+      defaultUnit = parsed.unit;
+      defaultDescription = firstServing.name;
+    } 
+    // Fall back to legacy serving_options
+    else if (meal.nutritional_metrics?.serving_options) {
+      console.log('Using legacy serving_options default');
       const firstOption = Object.values(meal.nutritional_metrics.serving_options)[0];
-      if (firstOption?.weight) {
+      if (firstOption) {
         defaultServing = firstOption.weight;
         defaultUnit = firstOption.unit || 'g';
         defaultDescription = firstOption.description;
       }
     }
-
-    console.log('Setting default serving:', { defaultServing, defaultUnit, defaultDescription });
-
-    const ratio = calculateServingRatio(defaultServing, defaultUnit, meal);
     
+    console.log('Default serving:', defaultServing, defaultUnit);
+    
+    // Calculate nutrients for default serving using adapter
+    const macros = getMacrosForServing(meal, defaultServing);
+    const micronutrients = getMicronutrientsForServing(meal, defaultServing);
+    
+    console.log('Initial macros:', macros);
+    console.log('Initial micronutrients:', Object.keys(micronutrients).length, 'nutrients');
+    
+    // Set all fields
     setFields({
       name: meal.name,
-      protein: (nutrients.protein?.value * ratio).toFixed(1),
-      carbs: (nutrients.carbs?.value * ratio).toFixed(1),
-      fat: (nutrients.fat?.value * ratio).toFixed(1),
-      calories: (nutrients.calories?.value * ratio).toFixed(0),
       serving: defaultServing,
       servingUnit: defaultUnit,
       servingDescription: defaultDescription,
-      micronutrients: nutrients,
+      calories: Math.round(macros.calories),
+      protein: Number(macros.protein.toFixed(1)),
+      carbs: Number(macros.carbs.toFixed(1)),
+      fat: Number(macros.fat.toFixed(1)),
+      fiber: Number(macros.fiber.toFixed(1)),
+      sugars: Number(macros.sugars.toFixed(1)),
+      micronutrients: micronutrients,
+      // Long COVID data
       longCovidBenefits: meal.longCovidBenefits || [],
       longCovidCautions: meal.longCovidCautions || [],
       longCovidRelevance: meal.longCovidRelevance || {},
+      functionalCompounds: meal.functionalCompounds || {},
+      properties: meal.properties || {}
     });
-
-    setTimeout(() => {
-      setFields(prev => ({ ...prev }));
-    }, 50);
+    
+    console.log('=== Meal Selection Complete ===');
   };
-
-  // Helper function to calculate serving ratio with unit conversion
-  const calculateServingRatio = (serving, unit = 'g', meal) => {
-    if (unit === 'ml') {
-      const density = getDensityForFood(meal?.name) || 1.0;
-      const weightInGrams = serving * density;
-      return weightInGrams / 100;
-    } else {
-      return serving / 100;
+  
+  // Handle serving selection
+  const handleServingSelection = (weight, description, unit = 'g', visualEquivalent = null, reason = null, timing = null) => {
+    console.log('=== Serving Selection ===');
+    console.log('Weight:', weight, 'Unit:', unit, 'Description:', description);
+    console.log('Visual Equivalent:', visualEquivalent);
+    console.log('Reason:', reason);
+    console.log('Timing:', timing);
+    
+    if (!selectedMeal) {
+      console.error('No meal selected');
+      return;
     }
+    
+    // Convert to grams for calculations (all nutrient data is per 100g)
+    let weightInGrams = weight;
+    if (unit === 'oz') {
+      weightInGrams = convertWeight.ozToG(weight);
+      console.log(`Converted ${weight}oz to ${weightInGrams.toFixed(1)}g`);
+    }
+    
+    // Get macros using grams
+    const macros = getMacrosForServing(selectedMeal, weightInGrams);
+    console.log('Calculated macros:', macros);
+    
+    // Get micronutrients using grams
+    const micronutrients = getMicronutrientsForServing(selectedMeal, weightInGrams);
+    console.log('Calculated micronutrients:', Object.keys(micronutrients).length, 'nutrients');
+    
+    // Update all fields including Long COVID data and serving metadata
+    setFields(prevFields => ({
+      ...prevFields,
+      serving: weight, // Keep in user's unit for display
+      servingUnit: unit,
+      servingInGrams: weightInGrams, // Store for database
+      servingDescription: description,
+      visualEquivalent: visualEquivalent,
+      servingReason: reason,
+      servingTiming: timing,
+      calories: Math.round(macros.calories),
+      protein: Number(macros.protein.toFixed(1)),
+      carbs: Number(macros.carbs.toFixed(1)),
+      fat: Number(macros.fat.toFixed(1)),
+      fiber: Number(macros.fiber.toFixed(1)),
+      sugars: Number(macros.sugars.toFixed(1)),
+      micronutrients: micronutrients,
+      // Preserve Long COVID metadata (don't overwrite)
+      longCovidBenefits: prevFields.longCovidBenefits || selectedMeal.longCovidBenefits || [],
+      longCovidCautions: prevFields.longCovidCautions || selectedMeal.longCovidCautions || [],
+      longCovidRelevance: prevFields.longCovidRelevance || selectedMeal.longCovidRelevance || {},
+      functionalCompounds: prevFields.functionalCompounds || selectedMeal.functionalCompounds || {},
+      properties: prevFields.properties || selectedMeal.properties || {}
+    }));
+    
+    setSuccess(`Serving updated to ${description} (${weight}${unit})`);
+    setTimeout(() => setSuccess(''), 2000);
+    
+    console.log('=== Fields Updated ===');
   };
+  
 
   const getDensityForFood = (foodName) => {
     if (!foodName || typeof foodName !== 'string') {
@@ -636,138 +852,7 @@ function FoodTrackerPage() {
     return 1.0;
   };
 
-  // New function to handle serving selection from suggestions
-  const handleServingSelection = (weight, description, unit = 'g') => {
-    console.log('Serving selection:', { weight, description, unit });
-    
-    if (!selectedMeal) {
-      console.error('No selected meal for serving calculation');
-      return;
-    }
-    
-    const weightNumber = parseFloat(weight);
-    if (isNaN(weightNumber) || weightNumber <= 0) {
-      console.error('Invalid weight provided:', weight);
-      return;
-    }
-    const ratio = calculateServingRatio(weightNumber, unit, selectedMeal);
-    
-    const nutrients = selectedMeal?.nutritional_metrics?.nutrients_per_100g || 
-                     selectedMeal?.nutrients?.per100g || {};
-    
-    if (!nutrients || Object.keys(nutrients).length === 0) {
-      console.warn('No nutrition data found for selected meal');
-      setFields(prev => ({
-        ...prev,
-        serving: weightNumber,
-        servingUnit: unit
-      }));
-      return;
-    }
-    
-    const newNutrition = {
-      protein: ((nutrients.protein?.value || 0) * ratio).toFixed(1),
-      carbs: ((nutrients.carbs?.value || 0) * ratio).toFixed(1),
-      fat: ((nutrients.fat?.value || 0) * ratio).toFixed(1),
-      calories: ((nutrients.calories?.value || 0) * ratio).toFixed(0)
-    };
-    
-    console.log('Calculated nutrition for serving:', newNutrition);
-    
-    setFields(prev => ({
-      ...prev,
-      serving: weightNumber,
-      servingUnit: unit,
-      protein: newNutrition.protein,
-      carbs: newNutrition.carbs,
-      fat: newNutrition.fat,
-      calories: newNutrition.calories
-    }));
-    
-    setSuccess(`Serving updated to ${description} (${weightNumber}${unit})`);
-    setTimeout(() => setSuccess(''), 2000);
-  };
-
-  const recalculateNutrients = (newServing, unit = 'g') => {
-    if (!selectedMeal) {
-      console.log('No selected meal for recalculation');
-      return;
-    }
-    
-    const serving = parseFloat(newServing);
-    if (isNaN(serving) || serving <= 0) {
-      console.log('Invalid serving size for recalculation:', newServing);
-      return;
-    }
-    
-    const nutrients = selectedMeal.nutritional_metrics?.nutrients_per_100g || 
-                     selectedMeal.nutrients?.per100g || {};
-
-    let ratio;
-    
-    if (unit === 'ml') {
-      const density = getDensityForFood(selectedMeal.name) || 1.0;
-      const weightInGrams = serving * density;
-      ratio = weightInGrams / 100;
-      
-      console.log('Liquid conversion:', {
-        serving: serving + 'ml',
-        density: density,
-        weightInGrams: weightInGrams + 'g',
-        ratio: ratio
-      });
-    } else {
-      ratio = serving / 100;
-      
-      console.log('Solid conversion:', {
-        serving: serving + 'g',
-        ratio: ratio
-      });
-    }
-    
-    console.log('Recalculating nutrients:', {
-      selectedMeal: selectedMeal.name,
-      newServing: serving,
-      unit: unit,
-      ratio: ratio,
-      originalNutrients: nutrients
-    });
-
-    setFields(prevFields => {
-      const updatedFields = { 
-        ...prevFields, 
-        serving: serving,
-        servingUnit: unit
-      };
-
-      if (nutrients.protein?.value !== undefined) {
-        updatedFields.protein = (nutrients.protein.value * ratio).toFixed(1);
-      }
-      if (nutrients.carbs?.value !== undefined) {
-        updatedFields.carbs = (nutrients.carbs.value * ratio).toFixed(1);
-      }
-      if (nutrients.fat?.value !== undefined) {
-        updatedFields.fat = (nutrients.fat.value * ratio).toFixed(1);
-      }
-      if (nutrients.calories?.value !== undefined) {
-        updatedFields.calories = (nutrients.calories.value * ratio).toFixed(0);
-      }
-
-      updatedFields.micronutrients = {};
-      Object.entries(nutrients).forEach(([key, value]) => {
-        if (!['protein', 'carbs', 'fat', 'calories', 'name', 'unit'].includes(key) && value?.value !== undefined) {
-          updatedFields.micronutrients[key] = {
-            ...value,
-            value: (value.value * ratio).toFixed(1)
-          };
-        }
-      });
-
-      console.log('Updated fields after recalculation:', updatedFields);
-      return updatedFields;
-    });
-  };
-
+  // Updated fetchSuggestions to use Web Worker search
   const fetchSuggestions = useCallback(async () => {
     const normalizedSearch = search.toLowerCase().trim();
 
@@ -778,96 +863,46 @@ function FoodTrackerPage() {
       return;
     }
 
+    // Check local cache first
     if (suggestionCache[normalizedSearch]) {
       console.log('Using cached results for:', normalizedSearch);
       setSuggestions(suggestionCache[normalizedSearch]);
       return;
     }
 
+    if (!searchServiceReady) {
+      console.log('Search service not ready yet...');
+      return;
+    }
+
     try {
       console.log(`Search for: "${normalizedSearch}"`);
 
-      let allFoods = allFoodsCache;
-      if (allFoods.length === 0) {
-        console.log('Fetching food database...');
-        const q = query(collection(db, 'meals'));
+      // Search via Web Worker
+      const results = await foodSearchService.search(normalizedSearch, 100);
 
-        const snap = await getDocs(q);
-        allFoods = snap.docs.map(doc => ({ 
-          id: doc.id, 
-          ...doc.data()
-        }));
+      // Ensure compatible format
+      const compatibleResults = results.map(food => ensureCompatibleFormat(food));
 
-        setAllFoodsCache(allFoods);
-        console.log(`Loaded ${allFoods.length} foods into cache`);
-      }
+      console.log(`Found ${compatibleResults.length} results`);
 
-      // Enhanced search algorithm with better scoring
-      const results = allFoods
-        .filter(meal => {
-          if (!meal.name) return false;
-          
-          const mealNameLower = meal.name.toLowerCase();
-          const category = (meal.category || '').toLowerCase();
-          const description = (meal.description || '').toLowerCase();
-          const tags = (meal.tags || []).map(tag => tag.toLowerCase());
-          
-          return mealNameLower.includes(normalizedSearch) ||
-                 mealNameLower.startsWith(normalizedSearch) ||
-                 category.includes(normalizedSearch) ||
-                 description.includes(normalizedSearch) ||
-                 tags.some(tag => tag.includes(normalizedSearch)) ||
-                 mealNameLower.split(' ').some(word => word.startsWith(normalizedSearch));
-        })
-        .map(food => {
-          const mealNameLower = (food.name || '').toLowerCase();
-          const category = (food.category || '').toLowerCase();
-          const description = (food.description || '').toLowerCase();
-          
-          let score = 0;
-          
-          if (mealNameLower === normalizedSearch) score += 100;
-          if (mealNameLower.startsWith(normalizedSearch)) score += 50;
-          if (mealNameLower.split(' ').some(word => word.startsWith(normalizedSearch))) score += 30;
-          if (mealNameLower.includes(normalizedSearch)) score += 20;
-          if (category.includes(normalizedSearch)) score += 15;
-          if (description.includes(normalizedSearch)) score += 10;
-          
-          if (food.nutritional_metrics?.serving_options || food.nutritional_metrics?.common_portions) {
-            score += 5;
-          }
-          
-          if (food.longCovidRelevance || food.longCovidBenefits || food.longCovidCautions) {
-            score += 3;
-          }
-          
-          return {
-            ...food,
-            searchMethod: 'javascript',
-            searchScore: score
-          };
-        })
-        .sort((a, b) => {
-          if (b.searchScore !== a.searchScore) {
-            return b.searchScore - a.searchScore;
-          }
-          return (a.name || '').localeCompare(b.name || '');
-        });
-
-      console.log(`Found ${results.length} results (showing all)`);
-
+      // Cache results locally
       setSuggestionCache(prev => ({
         ...prev,
-        [normalizedSearch]: results
+        [normalizedSearch]: compatibleResults
       }));
 
-      setSuggestions(results);
+      setSuggestions(compatibleResults);
+      
+      // Clear any previous error on successful search
+      setError('');
 
     } catch (err) {
       console.error('Search error:', err);
       setSuggestions([]);
+      setError('Search failed. Please try again.');
     }
-  }, [search, suggestionCache, allFoodsCache]);
+  }, [search, suggestionCache, searchServiceReady]);
 
   // Clear search function
   const clearSearch = () => {
@@ -946,7 +981,7 @@ function FoodTrackerPage() {
                   )}
                   {s.searchScore && (
                     <div className="suggestion-score" title={`Relevance: ${s.searchScore}`}>
-                      {s.searchScore >= 50 ? '🎯' : s.searchScore >= 20 ? '🔍' : '📝'}
+                      {s.searchScore >= 50 ? '🎯' : s.searchScore >= 20 ? '🔍' : '📄'}
                     </div>
                   )}
                 </div>
@@ -957,12 +992,10 @@ function FoodTrackerPage() {
                       📏
                     </span>
                   )}
-                  {longCovidAdjust && (
-                    <span className={`covid-indicator ${getCovidFoodRating(s.name)}`}>
+                  <span className={`covid-indicator ${getCovidFoodRating(s.name)}`}>
                       {getCovidFoodRating(s.name) === 'beneficial' ? '✅' : 
                        getCovidFoodRating(s.name) === 'caution' ? '⚠️' : 'ℹ️'}
                     </span>
-                  )}
                 </div>
               </li>
             ))}
@@ -996,13 +1029,45 @@ function FoodTrackerPage() {
     if (name === 'serving') {
       setFields(prev => ({ ...prev, [name]: value }));
       if (selectedMeal) {
-        recalculateNutrients(value);
+        recalculateNutrients(value, fields.servingUnit || 'g');
       }
     } else {
       setFields(prev => ({ ...prev, [name]: value }));
     }
   };
-
+  const handleUnitChange = (e) => {
+    const newUnit = e.target.value;
+    const currentServing = parseFloat(fields.serving) || 0;
+    const oldUnit = fields.servingUnit || 'g';
+    
+    if (currentServing === 0 || newUnit === oldUnit) {
+      setFields(prev => ({ ...prev, servingUnit: newUnit }));
+      return;
+    }
+    
+    let convertedServing = currentServing;
+    
+    // Convert the serving value
+    if (oldUnit === 'g' && newUnit === 'oz') {
+      convertedServing = Math.round(convertWeight.gToOz(currentServing) * 10) / 10;
+    } else if (oldUnit === 'oz' && newUnit === 'g') {
+      convertedServing = Math.round(convertWeight.ozToG(currentServing));
+    }
+    
+    console.log(`Unit change: ${currentServing}${oldUnit} → ${convertedServing}${newUnit}`);
+    
+    setFields(prev => ({ 
+      ...prev, 
+      serving: convertedServing,
+      servingUnit: newUnit 
+    }));
+    
+    // Recalculate nutrients with new unit
+    if (selectedMeal) {
+      recalculateNutrients(convertedServing, newUnit);
+    }
+  };
+  
   // Fetch food log function
   const fetchFoodLog = useCallback(async (page = 1) => {
     if (!currentUser || !currentUser.id) return;
@@ -1045,11 +1110,61 @@ function FoodTrackerPage() {
     navigate('/dashboard');
   };
 
-  // Loading state
+  // Show loading screen while initializing search service
+  if (!searchServiceReady && !searchServiceError) {
+    return (
+      <div className="food-tracker-container">
+        <div className="loading-indicator">
+          <div className="spinner"></div>
+          <h3>🔍 Loading Food Database...</h3>
+          {initProgress && <p className="init-progress">{initProgress}</p>}
+          <p className="loading-tip">
+            💡 This is a one-time load for your session.<br />
+            Future visits will load from cache instantly!
+          </p>
+          <div className="loading-details">
+            <small>Loading 50MB+ database with 8,000+ foods...</small>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if search service failed to initialize
+  if (searchServiceError) {
+    return (
+      <div className="food-tracker-container">
+        <div className="error-indicator">
+          <div className="error-icon">❌</div>
+          <h3>{searchServiceError}</h3>
+          <p>Please check your internet connection and try again.</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="retry-button"
+          >
+            Retry
+          </button>
+        
+
+          <button
+            onClick={handleBack} // Use navigate instead of window.location.href
+            className="btn-primary"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state for authentication
   if (authLoading) {
     return (
       <div className="food-tracker-container">
-        <div className="loading-indicator">Loading...</div>
+        <div className="loading-indicator">
+          <div className="spinner"></div>
+          <h3>Loading...</h3>
+        </div>
       </div>
     );
   }
@@ -1096,7 +1211,6 @@ function FoodTrackerPage() {
         {/* Title */}
         <h2>🍽️ Smart Meal Tracker</h2>
 
-
         <div className="food-tabs">
           {TABS.map(t => (
             <button
@@ -1113,53 +1227,34 @@ function FoodTrackerPage() {
           <AddFoodTab
             // Search and meal selection
             search={search}
-            setSearch={setSearch}
-            suggestions={suggestions}
-            setSuggestions={setSuggestions}
-            selectedMeal={selectedMeal}
-            setSelectedMeal={setSelectedMeal}
-            searchFocused={searchFocused}
-            setSearchFocused={setSearchFocused}
-            renderSearchInput={renderSearchInput}
-            handleSelectMeal={handleSelectMeal}
-            clearSearch={clearSearch}
-            
-            // Form fields and state
-            fields={fields}
-            setFields={setFields}
-            mealType={mealType}
-            setMealType={setMealType}
-            time={time}
-            setTime={setTime}
-            date={date}
-            setDate={setDate}
-            longCovidAdjust={longCovidAdjust}
-            setLongCovidAdjust={setLongCovidAdjust}
-            
-            // Edit mode
-            editingEntry={editingEntry}
-            handleCancelEdit={handleCancelEdit}
-            
-            // Form handlers
-            handleFieldChange={handleFieldChange}
-            handleServingSelection={handleServingSelection}
-            handleTimeChange={handleTimeChange}
-            convertTo24Hour={convertTo24Hour}
-            handleLogFood={handleLogFood}
-            
-            // Status and messages
-            loading={loading}
-            success={success}
-            error={error}
-            
-            // Constants
-            mealTypes={mealTypes}
-            pyodideStatus={pyodideStatus}
-            
-            // Other props
-            foodLog={foodLog}
-            MicronutrientRadarChart={MicronutrientRadarChart}
-          />
+  setSearch={setSearch}
+  suggestions={suggestions}
+  selectedMeal={selectedMeal}
+  fields={fields}
+  mealType={mealType}
+  setMealType={setMealType}
+  time={time}
+  date={date}
+  setDate={setDate}
+  renderSearchInput={renderSearchInput}
+  editingEntry={editingEntry}
+  handleCancelEdit={handleCancelEdit}
+  handleFieldChange={handleFieldChange}
+  handleServingSelection={handleServingSelection}
+  handleUnitChange={handleUnitChange}  // ⭐ ADD THIS LINE
+  handleTimeChange={handleTimeChange}
+  convertTo24Hour={convertTo24Hour}
+  handleLogFood={handleLogFood}
+  loading={loading}
+  success={success}
+  error={error}
+  mealTypes={mealTypes}
+  //pyodideStatus={pyodideStatus}
+  foodLog={foodLog}
+  MicronutrientRadarChart={MicronutrientRadarChart}
+  userProfile={userProfile}  // ⭐ ADD THIS LINE
+/>
+
         )}
 
         {tab === 'Food Journal' && (
@@ -1197,12 +1292,13 @@ function FoodTrackerPage() {
             userProfile={userProfile} 
           />
         )}
+        
         {tab === 'Trends' && (
-  <VitaminTimeSeriesTab 
-    foodLog={foodLog}
-    userProfile={userProfile}
-  />
-)}
+          <VitaminTimeSeriesTab 
+            foodLog={foodLog}
+            userProfile={userProfile}
+          />
+        )}
       </div>
     </div>
   );

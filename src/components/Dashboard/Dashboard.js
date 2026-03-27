@@ -69,6 +69,11 @@ function Dashboard() {
     console.log('CLICKED: Track Symptoms button');
     navigate('/symptom-tracker');
   };
+
+  const handleSymptomPatterns = () => {
+    console.log('CLICKED: Symptom Patterns button');
+    navigate('/symptom-patterns');
+  };
   
   // Handle logout - Complete logout from both localStorage and Firebase Auth
   const handleLogout = async () => {
@@ -137,10 +142,10 @@ function Dashboard() {
       <div className="header">
         <h1>Energy Management Dashboard</h1>
         <div className="user-info">
-          <span>Welcome, {userData?.name || 'User'}!</span>
+          <span>Welcome, {userData?.name || 'User'}! &nbsp;</span>      
           <div className="user-actions">
             <button onClick={handlePersonalSettings} className="settings-btn">
-              ⚙️ Settings
+            ⚙️ Settings
             </button>
             <button onClick={handleLogout} className="logout-btn">
               Logout
@@ -179,6 +184,13 @@ function Dashboard() {
                 onClick={handleSymptomTracker}
               >
                 🩺 Track Symptoms
+              </button>
+
+              <button 
+                className="action-button patterns" 
+                onClick={handleSymptomPatterns}
+              >
+                📊 Symptom Patterns
               </button>
             </div>
           </div>

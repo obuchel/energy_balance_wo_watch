@@ -54,8 +54,34 @@ const FoodJournalTab = ({
   ENTRIES_PER_PAGE,
   
   // Utility functions
-  formatDateHeader
+  formatDateHeader,
+  
+  // User preferences (for unit conversion)
+  userProfile
 }) => {
+  
+  // Helper function to format serving display with correct units
+  const formatServing = (entry) => {
+    // New entries have servingDisplayed and servingDisplayedUnit
+    if (entry.servingDisplayed !== undefined && entry.servingDisplayedUnit) {
+      const amount = typeof entry.servingDisplayed === 'number' 
+        ? entry.servingDisplayed.toFixed(1) 
+        : entry.servingDisplayed;
+      return `${amount}${entry.servingDisplayedUnit}`;
+    }
+    
+    // Old entries - stored in grams
+    const servingInGrams = entry.serving || 0;
+    
+    // If user prefers imperial, convert old entries to oz
+    if (userProfile?.unitSystem === 'imperial') {
+      const oz = (servingInGrams / 28.3495).toFixed(1);
+      return `${oz}oz`;
+    }
+    
+    // Default: show in grams
+    return `${servingInGrams}g`;
+  };
   
   // Helper function to convert 12-hour time to 24-hour for sorting
   const convertTo24HourForSort = (time12h) => {
@@ -228,7 +254,7 @@ const FoodJournalTab = ({
                                     {entry.name.length > 25 ? `${entry.name.substring(0, 25)}...` : entry.name}
                                   </span>
                                 </td>
-                                <td className="serving-cell">{entry.serving || '0'}g</td>
+                                <td className="serving-cell">{formatServing(entry)}</td>
                                 <td className="macro-cell">{typeof entry.protein === 'number' ? entry.protein.toFixed(1) : (entry.protein || '0')}</td>
                                 <td className="macro-cell">{typeof entry.carbs === 'number' ? entry.carbs.toFixed(1) : (entry.carbs || '0')}</td>
                                 <td className="macro-cell">{typeof entry.fat === 'number' ? entry.fat.toFixed(1) : (entry.fat || '0')}</td>

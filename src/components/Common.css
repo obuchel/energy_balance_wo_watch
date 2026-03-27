@@ -61,7 +61,7 @@
 * {
   box-sizing: border-box;
   margin: 0;
-  padding: 0;
+  /*padding: 0;*/
 }
 
 body {
@@ -742,4 +742,15 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(59, 130, 246, 0.8);
+}
+.form-grid.two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .form-grid.two-cols {
+    grid-template-columns: 1fr;
+  }
 }

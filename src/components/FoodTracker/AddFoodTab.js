@@ -1,10 +1,22 @@
 import React from 'react';
 
-// ServingSuggestions component - WITHOUT common portions
-const ServingSuggestions = ({ selectedMeal, onServingSelect, currentServing, currentUnit = 'g' }) => {
-  if (!selectedMeal || !selectedMeal.nutritional_metrics) return null;
+// Conversion utilities
+const GRAMS_PER_OUNCE = 28.3495;
 
-  const { serving_options } = selectedMeal.nutritional_metrics; // REMOVED: common_portions
+const convertWeight = {
+  ozToG: (oz) => oz * GRAMS_PER_OUNCE,
+  gToOz: (g) => g / GRAMS_PER_OUNCE,
+};
+
+// ServingSuggestions component - UPDATED with unit system support
+const ServingSuggestions = ({ selectedMeal, onServingSelect, currentServing, currentUnit = 'g', userUnitSystem = 'metric' }) => {
+  if (!selectedMeal) return null;
+
+  // Use longCovidServings from the new data format
+  const longCovidServings = selectedMeal.longCovidServings || [];
+  
+  // If no Long COVID servings, fall back to old format for backward compatibility
+  const legacyServingOptions = selectedMeal.nutritional_metrics?.serving_options;
   
   const isSelected = (weight, unit = 'g') => {
     const weightMatch = parseFloat(currentServing) === parseFloat(weight);
@@ -21,6 +33,50 @@ const ServingSuggestions = ({ selectedMeal, onServingSelect, currentServing, cur
     }
   };
 
+  // Parse serving amount from longCovidServings format (e.g., "240ml (8 oz)" or "120g")
+  const parseServingAmount = (amountString) => {
+    const match = amountString.match(/(\d+)(ml|g)/i);
+    if (match) {
+      return {
+        weight: parseFloat(match[1]),
+        unit: match[2].toLowerCase()
+      };
+    }
+    return { weight: 100, unit: 'g' };
+  };
+
+  // Convert serving to currently selected unit for display
+  // Use currentUnit (what's in the dropdown) instead of userUnitSystem
+  const convertServingForDisplay = (weight, unit) => {
+    // If currently viewing in oz and the serving is in grams, convert it
+    if (currentUnit === 'oz' && unit === 'g') {
+      const oz = convertWeight.gToOz(weight);
+      return {
+        weight: Math.round(oz * 10) / 10,
+        unit: 'oz',
+        originalWeight: weight,
+        originalUnit: unit
+      };
+    }
+    // If currently viewing in grams and the serving is in oz, convert it
+    if (currentUnit === 'g' && unit === 'oz') {
+      const g = convertWeight.ozToG(weight);
+      return {
+        weight: Math.round(g),
+        unit: 'g',
+        originalWeight: weight,
+        originalUnit: unit
+      };
+    }
+    // Otherwise keep as-is
+    return {
+      weight,
+      unit,
+      originalWeight: weight,
+      originalUnit: unit
+    };
+  };
+
   const getUnitIcon = (unit) => {
     switch(unit) {
       case 'ml': return '🥤';
@@ -30,31 +86,62 @@ const ServingSuggestions = ({ selectedMeal, onServingSelect, currentServing, cur
     }
   };
 
+  const getTimingIcon = (timing) => {
+    if (timing.includes('breakfast')) return '🌅';
+    if (timing.includes('lunch')) return '☀️';
+    if (timing.includes('dinner')) return '🌙';
+    if (timing.includes('snack')) return '🍎';
+    if (timing.includes('post') || timing.includes('activity')) return '💪';
+    return '🕐';
+  };
+
   return (
     <div className="serving-suggestions">
-      <h4>📏 Serving Size Suggestions</h4>
+      <h4>📏 Long COVID Serving Recommendations</h4>
       
-      {serving_options && Object.keys(serving_options).length > 0 && (
-        <div className="serving-category">
-          <h5>Standard Serving Options</h5>
-          <div className="serving-buttons">
-            {Object.entries(serving_options).map(([key, option]) => {
-              const selected = isSelected(option.weight, option.unit || 'g');
+      {/* Long COVID Servings - Primary */}
+      {longCovidServings.length > 0 && (
+        <div className="serving-category long-covid-servings">
+          <div className="serving-note info">
+            <small>💡 These servings are specifically optimized for Long COVID recovery based on digestive tolerance and nutritional needs</small>
+            <small>⚖️ All nutritional values are calculated per 100g/ml and automatically scaled to your selected serving</small>
+          </div>
+          
+          <div className="serving-buttons long-covid">
+            {longCovidServings.map((serving, index) => {
+              const parsed = parseServingAmount(serving.amount);
+              const displayed = convertServingForDisplay(parsed.weight, parsed.unit);
+              const selected = isSelected(displayed.weight, displayed.unit);
               
               return (
                 <button
-                  key={`standard-${key}-${option.weight}-${option.unit || 'g'}`}
-                  className={`serving-button ${selected ? 'selected' : ''}`}
-                  onClick={() => handleServingClick(option.weight, option.description, option.unit || 'g')}
-                  title={option.description}
-                  data-unit={option.unit || 'g'}
+                  key={`longcovid-${index}`}
+                  className={`serving-button long-covid ${selected ? 'selected' : ''}`}
+                  onClick={() => handleServingClick(displayed.weight, serving.name, displayed.unit)}
+                  title={serving.reason}
+                  data-unit={displayed.unit}
                   data-selected={selected}
                 >
-                  <span className="serving-icon">{getUnitIcon(option.unit || 'g')}</span>
-                  <span className="serving-weight">
-                    {option.weight}{option.unit || 'g'}
-                  </span>
-                  <span className="serving-description">{option.description}</span>
+                  <div className="serving-header">
+                    <span className="serving-icon">{getUnitIcon(displayed.unit)}</span>
+                    <span className="serving-weight">
+                      {displayed.weight}{displayed.unit}
+                    </span>
+                    {displayed.unit !== displayed.originalUnit && (
+                      <span className="serving-conversion">
+                        ({displayed.originalWeight}{displayed.originalUnit})
+                      </span>
+                    )}
+                  </div>
+                  <div className="serving-details">
+                    <span className="serving-name">{serving.name}</span>
+                    <div className="serving-timing">
+                      <span className="timing-icon">{getTimingIcon(serving.timing)}</span>
+                      <span className="timing-text">{serving.timing}</span>
+                    </div>
+                    <p className="serving-reason">{serving.reason}</p>
+                    <p className="serving-visualEquivalent">{serving.visualEquivalent}</p>
+                  </div>
                 </button>
               );
             })}
@@ -62,73 +149,174 @@ const ServingSuggestions = ({ selectedMeal, onServingSelect, currentServing, cur
         </div>
       )}
       
-      <div className="serving-note">
-        <small>💡 Click any suggestion to automatically set the serving size and update nutrition values</small>
-        <small>⚡ Liquid measurements (ml) are converted to equivalent weights for accurate nutrition calculation</small>
-        {currentServing && currentUnit && (
-          <div className="current-selection">
-            <small><strong>Current:</strong> {currentServing}{currentUnit}</small>
+      {/* Legacy serving options for backward compatibility */}
+      {!longCovidServings.length && legacyServingOptions && Object.keys(legacyServingOptions).length > 0 && (
+        <div className="serving-category standard-servings">
+          <small className="category-label">Standard Servings</small>
+          <div className="serving-buttons standard">
+            {Object.entries(legacyServingOptions).map(([key, option]) => {
+              const displayed = convertServingForDisplay(option.weight, option.unit);
+              const selected = isSelected(displayed.weight, displayed.unit);
+              
+              return (
+                <button
+                  key={key}
+                  className={`serving-button standard ${selected ? 'selected' : ''}`}
+                  onClick={() => handleServingClick(displayed.weight, option.description, displayed.unit)}
+                  title={option.description}
+                  data-unit={displayed.unit}
+                  data-selected={selected}
+                >
+                  <div className="serving-header">
+                    <span className="serving-icon">{getUnitIcon(displayed.unit)}</span>
+                    <span className="serving-weight">
+                      {displayed.weight}{displayed.unit}
+                    </span>
+                    {displayed.unit !== displayed.originalUnit && (
+                      <span className="serving-conversion">
+                        ({displayed.originalWeight}{displayed.originalUnit})
+                      </span>
+                    )}
+                  </div>
+                  <div className="serving-details">
+                    <span className="serving-name">{option.description}</span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
 
-// Long COVID Food Information Component
+// LongCovidFoodInfo component remains unchanged from original
 const LongCovidFoodInfo = ({ foodName, mealData }) => {
-  if (mealData && (mealData.longCovidRelevance || mealData.longCovidBenefits || mealData.longCovidCautions)) {
-    const covidRelevance = mealData.longCovidRelevance || {};
-    const benefits = mealData.longCovidBenefits || [];
-    const cautions = mealData.longCovidCautions || [];
-    const functionalCompounds = mealData.functionalCompounds || {};
+  if (!mealData) {
+    return (
+      <div className="no-food-info">
+        <p>Select a food to see its Long COVID nutrition information</p>
+      </div>
+    );
+  }
 
-    let category = 'neutral';
-    if (benefits.length > cautions.length) category = 'beneficial';
-    if (cautions.length > benefits.length) category = 'caution';
+  const benefits = mealData.longCovidBenefits || [];
+  const cautions = mealData.longCovidCautions || [];
+  const covidRelevance = mealData.longCovidRelevance || {};
+  const properties = mealData.properties || {};
+  const functionalCompounds = mealData.functionalCompounds || {};
 
+  if (benefits.length > 0 || cautions.length > 0 || Object.keys(covidRelevance).length > 0) {
     const antiInflammatoryLevel = covidRelevance.antiInflammatory || 'unknown';
+    
+    const getRelevanceBadge = (level) => {
+      switch(level) {
+        case 'very-high':
+        case 'high':
+          return { text: 'High', class: 'high', icon: '🟢' };
+        case 'moderate':
+          return { text: 'Moderate', class: 'moderate', icon: '🟡' };
+        case 'low':
+          return { text: 'Low', class: 'low', icon: '🟠' };
+        case 'very-low':
+        case 'negative':
+          return { text: 'Caution', class: 'negative', icon: '🔴' };
+        default:
+          return { text: 'Unknown', class: 'unknown', icon: 'ℹ️' };
+      }
+    };
 
     return (
-      <div className={`long-covid-food-info ${category}`}>
-        <div className="food-info-header">
-          <span className={`category-icon ${category}`}>
-            {category === 'beneficial' ? '✅' : 
-             category === 'caution' ? '⚠️' : 'ℹ️'}
-          </span>
-          <strong>Database Analysis: {foodName}</strong>
-        </div>
+      <div className="long-covid-food-info">
+        <h4>{foodName}</h4>
         
-        <div className="inflammatory-level">
-          <h5>🔥 Anti-Inflammatory Level</h5>
-          <div className={`level-indicator level-${antiInflammatoryLevel}`}>
-            <span className="level-value"> {antiInflammatoryLevel.toUpperCase()}</span>
-            <span className="level-description">
-              {antiInflammatoryLevel === 'high' ? 'Excellent for reducing inflammation' :
-               antiInflammatoryLevel === 'moderate' ? 'Moderately helpful for inflammation' :
-               antiInflammatoryLevel === 'low' ? 'Limited anti-inflammatory effects' :
-               antiInflammatoryLevel === 'neutral' ? 'No significant inflammatory impact' : 'Not assessed'}
-            </span>
-          </div>
-        </div>
-
-        {Object.keys(functionalCompounds).length > 0 && (
-          <div className="functional-compounds">
-            <h5>🧬 Functional Compounds</h5>
-            <div className="compounds-grid">
-              {Object.entries(functionalCompounds).map(([compound, level]) => (
-                <div key={compound} className="compound-item">
-                  <span className="compound-name">{compound.replace(/_/g, ' ')}</span>
-                  <span className={`compound-level level-${level}`}> {level}</span>
-                </div>
-              ))}
+        {/* Properties Tags */}
+        {Object.keys(properties).length > 0 && (
+          <div className="properties-section">
+            <div className="property-tags">
+              {properties.fodmap && (
+                <span className={`property-tag fodmap ${properties.fodmap === 'low' ? 'low-fodmap' : 'high-fodmap'}`}>
+                  {properties.fodmap === 'low' ? '✓ Low FODMAP' : '⚠️ High FODMAP'}
+                </span>
+              )}
+              {properties.histamine === 'low' && (
+                <span className="property-tag histamine-low">✓ Low Histamine</span>
+              )}
+              {properties.safeForMCAS && (
+                <span className="property-tag mcas-safe">✓ MCAS Safe</span>
+              )}
+              {properties.dairyFree && (
+                <span className="property-tag dairy-free">🌱 Dairy Free</span>
+              )}
+              {properties.glutenFree && (
+                <span className="property-tag gluten-free">🌾 Gluten Free</span>
+              )}
             </div>
           </div>
         )}
         
+        {/* Key Long COVID Relevance Metrics */}
+        <div className="covid-relevance-grid">
+          <div className="relevance-item">
+            <b>🔥 Anti-Inflammatory</b>
+             <span className={`level-indicator level-${antiInflammatoryLevel}`}>
+              <span className="level-value"> {getRelevanceBadge(antiInflammatoryLevel).text}</span>
+            </span>
+          </div>
+          
+          {covidRelevance.energyImpact && (
+            <div className="relevance-item">
+              <b>⚡ Energy Impact</b>
+              <span className={`level-indicator level-${covidRelevance.energyImpact}`}>
+                <span className="level-value"> {getRelevanceBadge(covidRelevance.energyImpact).text}</span>
+              </span>
+            </div>
+          )}
+          
+          {covidRelevance.mitochondrialSupport && (
+            <div className="relevance-item">
+              <b>🔋 Mitochondrial Support</b>
+              <span className={`level-indicator level-${covidRelevance.mitochondrialSupport}`}>
+                <span className="level-value"> {getRelevanceBadge(covidRelevance.mitochondrialSupport).text}</span>
+              </span>
+            </div>
+          )}
+          
+          {covidRelevance.immuneModulating && (
+            <div className="relevance-item">
+              <b>🛡️ Immune Support</b>
+              <span className={`level-indicator level-${covidRelevance.immuneModulating}`}>
+                <span className="level-value"> {getRelevanceBadge(covidRelevance.immuneModulating).text}</span>
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Functional Compounds */}
+        {Object.keys(functionalCompounds).length > 0 && (
+          <div className="functional-compounds">
+            <b>🧬 Functional Compounds</b>
+            <ul className="compounds-grid">
+           
+              {Object.entries(functionalCompounds).map(([compound, level]) => {
+                const badge = getRelevanceBadge(level);
+                return (
+                  <li key={compound} className="compounds-item">
+                    <span className="compound-name">{compound.replace(/_/g, ' ')}</span>
+                    <span className={`compound-level level-${badge.class}`}> {badge.text}</span>
+                  </li>
+                );
+              })}
+            </ul>
+            
+          </div>
+        )}
+        
+        {/* Benefits */}
         {benefits.length > 0 && (
           <div className="benefits-list">
-            <h5>✨ Benefits for Long COVID Recovery</h5>
+            <b>✨ Benefits for Long COVID Recovery</b>
             <ul>
               {benefits.map((benefit, i) => (
                 <li key={i}>{benefit}</li>
@@ -137,14 +325,30 @@ const LongCovidFoodInfo = ({ foodName, mealData }) => {
           </div>
         )}
         
+        {/* Cautions */}
         {cautions.length > 0 && (
           <div className="cautions-list">
-            <h5>⚠️ Important Considerations</h5>
+            <b>⚠️ Important Considerations</b>
             <ul>
               {cautions.map((caution, i) => (
                 <li key={i}>{caution}</li>
               ))}
             </ul>
+          </div>
+        )}
+        
+        {/* Data Source Note */}
+        {mealData.fndds_metadata && (
+          <div className="data-source">
+            
+             <div><small> 📊 Source: {mealData.fndds_metadata.source} </small></div>
+             <div><small>Category: {mealData.fndds_metadata.wweia_category}</small></div>
+            
+            {mealData.ai_metadata_assessment && (
+              <small className="ai-assessment">
+                🤖 AI Assessment: {mealData.ai_metadata_assessment.overall} confidence
+              </small>
+            )}
           </div>
         )}
       </div>
@@ -167,7 +371,7 @@ const LongCovidFoodInfo = ({ foodName, mealData }) => {
   );
 };
 
-// Long COVID Side Panel Component
+// Long COVID Side Panel Component - unchanged
 const LongCovidSidePanel = ({ selectedFood, selectedMeal, foodLog = [], isSearching = false, searchTerm = '' }) => {
   if (selectedFood && selectedMeal) {
     return (
@@ -229,66 +433,46 @@ const LongCovidSidePanel = ({ selectedFood, selectedMeal, foodLog = [], isSearch
           <h4>ℹ️ Recommended Foods</h4>
           <ul>
             <li><strong>Whole Grains:</strong> Oats, quinoa, brown rice</li>
-            <li><strong>Lean Proteins:</strong> Chicken, turkey, legumes</li>
-            <li><strong>Citrus Fruits:</strong> High in vitamin C</li>
-            <li><strong>Olive Oil:</strong> Monounsaturated fats</li>
-            <li><strong>Garlic & Onions:</strong> Immune support</li>
+            <li><strong>Legumes:</strong> Lentils, chickpeas (protein, fiber)</li>
+            <li><strong>Fermented Foods:</strong> Yogurt, kefir (probiotics)</li>
+            <li><strong>Olive Oil:</strong> Extra virgin (healthy fats)</li>
           </ul>
         </div>
 
         <div className="category-section caution">
           <h4>⚠️ Foods to Limit</h4>
           <ul>
-            <li><strong>Processed Foods:</strong> High in inflammation-promoting ingredients</li>
-            <li><strong>Refined Sugars:</strong> Can worsen inflammation</li>
-            <li><strong>Red/Processed Meat:</strong> May increase inflammatory markers</li>
-            <li><strong>Trans Fats:</strong> Found in margarine, processed foods</li>
+            <li><strong>Processed Foods:</strong> High in inflammatory compounds</li>
+            <li><strong>Added Sugars:</strong> Can trigger inflammation</li>
             <li><strong>Refined Carbs:</strong> White bread, pastries</li>
-            <li><strong>Fried Foods:</strong> High in inflammatory compounds</li>
+            <li><strong>Trans Fats:</strong> Margarine, fried foods</li>
           </ul>
         </div>
       </div>
 
-      <div className="additional-tips">
-        <h4>💡 General Tips</h4>
-        <ul>
-          <li>Stay well hydrated (8+ glasses water daily)</li>
-          <li>Consider vitamin D supplementation</li>
-          <li>Eat regular, smaller meals to maintain energy</li>
-          <li>Focus on nutrient-dense, whole foods</li>
-          <li>Limit alcohol and caffeine if they worsen symptoms</li>
-        </ul>
+      <div className="guide-footer">
+        <p><em>💡 Select a food item above to see detailed Long COVID nutritional analysis</em></p>
       </div>
     </div>
   );
 };
 
-// Main AddFoodTab component
+// Main AddFoodTab Component - UPDATED with unit system support
 const AddFoodTab = ({
-  // Search and meal selection
+  // Search props
   search,
   setSearch,
   suggestions,
-  setSuggestions,
   selectedMeal,
-  setSelectedMeal,
-  searchFocused,
-  setSearchFocused,
-  renderSearchInput,
-  handleSelectMeal,
-  clearSearch,
-  
-  // Form fields and state
   fields,
-  setFields,
   mealType,
   setMealType,
   time,
-  setTime,
   date,
   setDate,
-  longCovidAdjust,
-  setLongCovidAdjust,
+  
+  // Rendering functions
+  renderSearchInput,
   
   // Edit mode
   editingEntry,
@@ -298,6 +482,7 @@ const AddFoodTab = ({
   handleFieldChange,
   handleServingSelection,
   handleTimeChange,
+  handleUnitChange, // NEW
   convertTo24Hour,
   handleLogFood,
   
@@ -312,8 +497,13 @@ const AddFoodTab = ({
   
   // Other props
   foodLog,
-  MicronutrientRadarChart
+  MicronutrientRadarChart,
+  userProfile // NEW - to get unit preference
 }) => {
+  // Determine user's preferred unit system
+  const userUnitSystem = userProfile?.unitSystem || 'metric';
+  const servingUnit = fields.servingUnit || (userUnitSystem === 'imperial' ? 'oz' : 'g');
+  
   return (
     <div className="food-form-section">
       <div className="food-form-left">
@@ -336,36 +526,32 @@ const AddFoodTab = ({
           </div>
         )}
 
-        {/* Long COVID Checkbox */}
-        <div className="form-group long-covid-checkbox-group">
-          <label className="long-covid-checkbox-label">
-            <input 
-              type="checkbox" 
-              checked={longCovidAdjust} 
-              onChange={e => setLongCovidAdjust(e.target.checked)} 
-              className="long-covid-checkbox"
-            /> 
-            <span className="checkbox-text">
-              I have Long COVID - Show food recommendations and adjustments
-            </span>
-          </label>
-          {longCovidAdjust && (
-            <div className="long-covid-info-banner">
-              <p>🔬 <strong>Long COVID Mode:</strong> Food recommendations will be adjusted to focus on anti-inflammatory options that may help manage symptoms and support recovery.</p>
-            </div>
-          )}
+        {/* Long COVID Info Banner */}
+        <div className="long-covid-info-banner">
+          <span className="banner-icon">🩺</span>
+          <span className="banner-text">All recommendations are tailored for Long COVID recovery based on your profile.</span>
         </div>
 
         {renderSearchInput()}
 
         {/* Nutrition fields with serving suggestions */}
         {selectedMeal && (
-          <ServingSuggestions 
-            selectedMeal={selectedMeal}
-            onServingSelect={handleServingSelection}
-            currentServing={fields.serving}
-            currentUnit={fields.servingUnit || 'g'}
-          />
+          <>
+            <ServingSuggestions 
+              selectedMeal={selectedMeal}
+              onServingSelect={handleServingSelection}
+              currentServing={fields.serving}
+              currentUnit={servingUnit}
+              userUnitSystem={userUnitSystem}
+            />
+            
+            {/* Note about per 100g calculation */}
+            <div className="nutrition-calculation-note">
+              <small>
+                📊 <strong>Note:</strong> All values below are automatically calculated from the per 100g/ml base data and scaled to your selected serving size.
+              </small>
+            </div>
+          </>
         )}
 
         <div className="form-row">
@@ -405,23 +591,36 @@ const AddFoodTab = ({
             />
             <label>Fat (g)</label>
           </div>
-          <div className="form-group">
-            <input 
-              name="serving" 
-              value={fields.serving || ''} 
-              onChange={handleFieldChange}
-              type="number"
-              step="1"
-              className="serving-input"
-              placeholder=" "
-            />
-            <label>Serving (g)</label>
+          
+          {/* UPDATED: Serving input with unit selector */}
+          <div className="form-group serving-with-unit">
+            <div className="serving-input-group">
+              <input 
+                name="serving" 
+                value={fields.serving || ''} 
+                onChange={handleFieldChange}
+                type="number"
+                step={servingUnit === 'oz' ? '0.1' : '1'}
+                className="serving-input"
+                placeholder=" "
+              />
+              <select
+                name="servingUnit"
+                value={servingUnit}
+                onChange={handleUnitChange}
+                className="unit-selector"
+              >
+                <option value="g">g</option>
+                <option value="oz">oz</option>
+              </select>
+            </div>
+            <label>Serving</label>
           </div>
         </div>
 
         {/* Meal details */}
         <div className="form-row">
-          <div className="form-group">
+          <div className="form-group meal-type-group">
             <label htmlFor="meal-type">Meal Type</label>
             <select 
               id="meal-type" 
@@ -453,68 +652,184 @@ const AddFoodTab = ({
           </div>
         </div>
 
-        {/* Calories field */}
-        <div className="form-group">
-          <input 
-            name="calories" 
-            value={fields.calories || ''} 
-            onChange={handleFieldChange} 
-            type="number"
-            step="1"
-            placeholder=" "
-          />
-          <label>Calories</label>
+        <div className="form-row">
+          <div className="form-group">
+            <input 
+              name="calories" 
+              value={fields.calories || ''} 
+              onChange={handleFieldChange}
+              type="number"
+              step="1"
+              placeholder=" "
+              readOnly={selectedMeal}
+            />
+            <label>Calories</label>
+          </div>
         </div>
 
-        <div className="form-group">
-          <button 
-            className={`submit-button ${editingEntry ? 'update-mode' : ''}`}
-            onClick={handleLogFood}
-            disabled={loading || !fields.name}
-          >
-            {loading ? 
-              (editingEntry ? 'Updating...' : 'Logging...') : 
-              (editingEntry ? 'Update Food' : 'Log Food')
-            }
-          </button>
-          {success && <div className="success-message">{success}</div>}
-          {error && <div className="error-message">{error}</div>}
-        </div>
-      </div>
-
-      <div className="food-form-right">
-        {longCovidAdjust && (
-          <LongCovidSidePanel 
-            selectedFood={fields.name} 
-            selectedMeal={selectedMeal}
-            foodLog={foodLog}
-            isSearching={search.length >= 2 && !selectedMeal}
-            searchTerm={search}
-          />
+        {/* Micronutrient radar chart */}
+        {selectedMeal && fields.micronutrients && (
+          <div className="micronutrient-display">
+            <MicronutrientRadarChart 
+              micronutrients={fields.micronutrients}
+              selectedMeal={selectedMeal}
+            />
+          </div>
         )}
 
-        {/* Micronutrient Radar Chart */}
-        {selectedMeal && fields.micronutrients && Object.keys(fields.micronutrients).length > 0 && (
-          <MicronutrientRadarChart 
-            micronutrients={fields.micronutrients}
-            selectedMeal={selectedMeal}
-          />
-        )}
+        {/* Submit button */}
+        <button 
+          onClick={handleLogFood} 
+          disabled={loading}
+          className="log-food-button"
+        >
+          {loading ? (
+            <>
+              <span className="loading-spinner"></span>
+              {editingEntry ? 'Updating Entry...' : 'Logging Food...'}
+            </>
+          ) : (
+            <>
+              {editingEntry ? '✅ Update Entry' : '✅ Log Food'}
+            </>
+          )}
+        </button>
 
-        {!longCovidAdjust && (
-          <div className="general-nutrition-info">
-            <h3>📊 Nutrition Tips</h3>
-            <p>Enable Long COVID mode above to get personalized food recommendations and anti-inflammatory guidance.</p>
-            {pyodideStatus === 'ready' && (
-              <div className="ai-tip">
-                <p>💡 <strong>AI Tip:</strong> The search above uses machine learning to find the most relevant foods for your queries!</p>
-              </div>
-            )}
+        {/* Status messages */}
+        {success && <div className="success-message">{success}</div>}
+        {error && <div className="error-message">{error}</div>}
+        
+        {/* Pyodide status */}
+        {pyodideStatus && (
+          <div className="pyodide-status">
+            {pyodideStatus}
           </div>
         )}
       </div>
+
+      {/* Long COVID side panel */}
+      <div className="long-covid-panel-container">
+        <LongCovidSidePanel
+          selectedFood={search}
+          selectedMeal={selectedMeal}
+          foodLog={foodLog}
+          isSearching={search.length >= 2}
+          searchTerm={search}
+        />
+      </div>
+      
+      <style jsx>{`
+        /* Long COVID info banner */
+        .long-covid-info-banner {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 18px;
+          background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
+          border: 1px solid rgba(102, 126, 234, 0.2);
+          border-radius: 10px;
+          font-size: 14px;
+          color: #4a5568;
+          margin-bottom: 16px;
+          line-height: 1.4;
+        }
+        
+        .long-covid-info-banner .banner-icon {
+          font-size: 18px;
+          flex-shrink: 0;
+        }
+        
+        .long-covid-info-banner .banner-text {
+          flex: 1;
+        }
+        
+        /* Serving with unit styles */
+        .serving-with-unit {
+          position: relative;
+          min-width: 160px;
+          flex: 1;
+        }
+        
+        .serving-input-group {
+          display: flex;
+          gap: 0.25rem;
+          align-items: stretch;
+          width: 100%;
+        }
+        
+        .serving-input {
+          flex: 1;
+          min-width: 0;
+          padding: 0.75rem 1rem;
+          border: 2px solid var(--gray-300, #d1d5db);
+          border-radius: var(--border-radius-lg, 12px);
+          font-size: 1rem;
+          background: rgba(255, 255, 255, 0.9);
+          transition: all 0.2s ease;
+        }
+        
+        .serving-input:focus {
+          outline: none;
+          border-color: var(--primary-color, #3b82f6);
+          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        }
+        
+        .serving-input:hover {
+          border-color: var(--gray-400, #9ca3af);
+        }
+        
+        .unit-selector {
+          width: 60px;
+          padding: 0.75rem 0.5rem;
+          border: 2px solid var(--gray-300);
+          border-radius: var(--border-radius-lg);
+          font-size: 0.875rem;
+          background: rgba(255, 255, 255, 0.9);
+          cursor: pointer;
+          transition: var(--transition);
+        }
+        
+        .unit-selector:focus {
+          outline: none;
+          border-color: var(--primary-color);
+          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        }
+        
+        .unit-selector:hover {
+          border-color: var(--primary-color);
+        }
+        
+        /* Serving conversion hint */
+        .serving-conversion {
+          font-size: 0.75rem;
+          color: var(--gray-500);
+          margin-left: 0.25rem;
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+          .serving-input-group {
+            flex-direction: row;
+          }
+          
+          .unit-selector {
+            width: 55px;
+          }
+          
+          .serving-input {
+            min-width: 80px;
+          }
+        }
+        
+        @media (max-width: 1024px) {
+          .serving-with-unit {
+            min-width: 140px;
+          }
+        }
+      `}</style>
     </div>
   );
 };
 
 export default AddFoodTab;
+export { ServingSuggestions, LongCovidFoodInfo, LongCovidSidePanel, convertWeight, GRAMS_PER_OUNCE };

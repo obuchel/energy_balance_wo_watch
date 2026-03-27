@@ -41,6 +41,23 @@ const isSameOrAfter = (dateString1, dateString2) => {
   return date1 >= date2;
 };
 
+/**
+ * Shared helper: detect Long COVID status from user profile.
+ * Checks all possible field names: covid_severity, longCovidSeverity, hasLongCovid.
+ * Returns { hasCondition: boolean, severity: string|null }
+ */
+const detectCovidStatus = (userData) => {
+  if (!userData) return { hasCondition: false, severity: null };
+  
+  const severity = userData.covid_severity || userData.longCovidSeverity || null;
+  const hasCondition = (severity && severity !== 'None' && severity !== null) || userData.hasLongCovid === true;
+  
+  return {
+    hasCondition,
+    severity: hasCondition ? (severity || 'moderate') : null
+  };
+};
+
 // FIXED: Enhanced nutrient key mapping function
 function normalizeNutrientKey(key) {
   const keyMappings = {
@@ -97,8 +114,8 @@ function normalizeNutrientKey(key) {
     'Selenium': 'selenium',
     'Copper': 'copper',
     'Potassium': 'potassium',
-    'Phosphorus': 'phosphorus',
-    'Manganese': 'manganese'
+    'Phosphorus': 'phosphorus'
+   // 'Manganese': 'manganese'
   };
   
   // First try direct mapping
@@ -330,13 +347,13 @@ const baseRDAData10 = {
     unit: 'mg',
     femaleAdjust: 0.875,
     description: "Helps convert food into energy"
-  },
-  manganese: {
+  }//,
+ /* manganese: {
     value: 2.3,
     unit: 'mg',
     femaleAdjust: 0.78,
     description: "Important for bone development and wound healing"
-  }
+  }*/
 };
 
 // MacronutrientChart component
@@ -375,8 +392,17 @@ function MacronutrientChart({ userData, userIntake = {} }) {
       const activityMultiplier = activityFactors[activity_level] || 1.375;
       let tdee = bmr * activityMultiplier;
       
-      if (userData.covid_condition) {
-        tdee *= 1.07;
+      {
+        const { hasCondition, severity } = detectCovidStatus(userData);
+        if (hasCondition) {
+          const severityTDEE = {
+            'mild': 1.05,
+            'moderate': 1.07,
+            'severe': 1.10,
+            'very severe': 1.12
+          };
+          tdee *= severityTDEE[severity?.toLowerCase()] || 1.07;
+        }
       }
       
       const bmi = calculateBMI(weight, height);
@@ -398,10 +424,20 @@ function MacronutrientChart({ userData, userIntake = {} }) {
       let carbsPct = 0.45;
       let fatPct = 0.3;
       
-      if (userData.covid_condition) {
-        proteinPct = 0.30;
-        carbsPct = 0.40;
-        fatPct = 0.30;
+      {
+        const { hasCondition, severity } = detectCovidStatus(userData);
+        if (hasCondition) {
+          const severityMacros = {
+            'mild':         { protein: 0.28, carbs: 0.42, fat: 0.30 },
+            'moderate':     { protein: 0.30, carbs: 0.40, fat: 0.30 },
+            'severe':       { protein: 0.32, carbs: 0.38, fat: 0.30 },
+            'very severe':  { protein: 0.35, carbs: 0.35, fat: 0.30 }
+          };
+          const macros = severityMacros[severity?.toLowerCase()] || severityMacros['moderate'];
+          proteinPct = macros.protein;
+          carbsPct = macros.carbs;
+          fatPct = macros.fat;
+        }
       }
       
       const bmi = calculateBMI(userData.weight, userData.height);
@@ -444,18 +480,20 @@ function MacronutrientChart({ userData, userIntake = {} }) {
       fat: 'Higher proportion of omega-3s recommended to reduce inflammation'
     };
     
+    const { hasCondition: showCovidNotes } = detectCovidStatus(userData);
+    
     return {
       protein: { 
         value: parseFloat(protein),
-        covidNote: userData.covid_condition ? covidNotes.protein : null
+        covidNote: showCovidNotes ? covidNotes.protein : null
       },
       carbs: { 
         value: parseFloat(carbs),
-        covidNote: userData.covid_condition ? covidNotes.carbs : null
+        covidNote: showCovidNotes ? covidNotes.carbs : null
       },
       fat: { 
         value: parseFloat(fat),
-        covidNote: userData.covid_condition ? covidNotes.fat : null
+        covidNote: showCovidNotes ? covidNotes.fat : null
       },
       calories: {
         value: totalCalories
@@ -652,15 +690,19 @@ function MacronutrientChart({ userData, userIntake = {} }) {
           .text(nutrient);
       });
       
-      if (userData?.covid_condition) {
-        svg.append("text")
-          .attr("x", width / 2)
-          .attr("y", height + 40)
-          .attr("text-anchor", "middle")
-          .attr("font-size", "12px")
-          .attr("font-style", "italic")
-          .attr("fill", "#6366f1")
-          .text("Note: RDA values adjusted for Long COVID recovery needs");
+      {
+        const { hasCondition, severity } = detectCovidStatus(userData);
+        if (hasCondition) {
+          const severityLabel = severity.charAt(0).toUpperCase() + severity.slice(1);
+          svg.append("text")
+            .attr("x", width / 2)
+            .attr("y", height + 40)
+            .attr("text-anchor", "middle")
+            .attr("font-size", "12px")
+            .attr("font-style", "italic")
+            .attr("fill", "#6366f1")
+            .text(`Note: RDA values adjusted for Long COVID recovery (${severityLabel} severity)`);
+        }
       }
       
       const calculateCalories = (data) => {
@@ -773,6 +815,13 @@ function MicronutrientChart({ data, userData }) {
   const [displayMode, setDisplayMode] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
+
+  // Sync local userInfo when parent passes new userData (e.g., after COVID toggle)
+  useEffect(() => {
+    if (userData) {
+      setUserInfo(userData);
+    }
+  }, [userData]);
 
   const getSeverityFactor = useCallback((severity) => {
     switch (severity?.toLowerCase()) {
@@ -1010,29 +1059,6 @@ function MicronutrientChart({ data, userData }) {
     }
   };
 
-  const toggleCovidSeverity = () => {
-    const severities = [null, 'mild', 'moderate', 'severe', 'very severe'];
-    const currentSeverity = userInfo.covid_severity?.toLowerCase() || userInfo.longCovidSeverity?.toLowerCase() || null;
-    const currentIndex = severities.indexOf(currentSeverity);
-    const nextIndex = (currentIndex + 1) % severities.length;
-    const newSeverity = severities[nextIndex];
-
-    const updatedUserInfo = {
-      ...userInfo,
-      covid_severity: newSeverity,
-      longCovidSeverity: newSeverity,
-      hasLongCovid: newSeverity !== null
-    };
-
-    if (newSeverity === null) {
-      delete updatedUserInfo.covid_severity;
-      delete updatedUserInfo.longCovidSeverity;
-      updatedUserInfo.hasLongCovid = false;
-    }
-
-    setUserInfo(updatedUserInfo);
-  };
-
   const getCurrentCovidSeverity = () => {
     const severity = userInfo.covid_severity || userInfo.longCovidSeverity;
     if (!severity || severity === null || severity === 'None') return 'None';
@@ -1103,62 +1129,6 @@ function MicronutrientChart({ data, userData }) {
             <p className="empty-state-description">
               Once you log some meals, we'll analyze your nutrient intake and show your personalized micronutrient status here.
             </p>
-          </div>
-        </div>
-        <div className="profile-card">
-          <h3 className="profile-title">User Profile</h3>
-          <div className="profile-grid">
-            <div className="profile-item">
-              <p className="profile-label">Age</p>
-              <p className="profile-value">{userInfo?.age || 'Not specified'} years</p>
-            </div>
-            <div className="profile-item">
-              <p className="profile-label">Gender</p>
-              <p className="profile-value">{userInfo?.gender ? userInfo.gender.charAt(0).toUpperCase() + userInfo.gender.slice(1) : 'Not specified'}</p>
-            </div>
-            <div className="profile-item">
-              <p className="profile-label">BMI</p>
-              <p className="profile-value">{userInfo?.weight && userInfo?.height ?
-                (userInfo.weight / Math.pow(userInfo.height/100, 2)).toFixed(1) : 'N/A'}</p>
-            </div>
-            <div className="profile-item">
-              <p className="profile-label">Activity Level</p>
-              <p className="profile-value">{userInfo?.activity_level || 'Not specified'}</p>
-            </div>
-            <div className="profile-item">
-              <p className="profile-label">Medical Conditions</p>
-              <p className="profile-value">{userInfo?.medical_conditions && userInfo.medical_conditions.length > 0 ?
-                userInfo.medical_conditions.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ') : 'None'}</p>
-            </div>
-            <div className="profile-item">
-              <p className="profile-label">COVID Status</p>
-              <button
-                onClick={toggleCovidSeverity}
-                className="covid-toggle-button"
-                style={{
-                  padding: '8px 12px',
-                  backgroundColor: '#e3f2fd',
-                  border: '2px solid #2196f3',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#1976d2',
-                  transition: 'all 0.2s ease',
-                  minWidth: '120px'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = '#bbdefb';
-                  e.target.style.transform = 'scale(1.02)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = '#e3f2fd';
-                  e.target.style.transform = 'scale(1)';
-                }}
-              >
-                {getCurrentCovidSeverity()} (Click to change)
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -1284,63 +1254,6 @@ function MicronutrientChart({ data, userData }) {
           <div className="legend-item">
             <div className="legend-threshold"></div>
             <span className="legend-text">Deficiency Threshold (70%)</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="profile-card">
-        <h3 className="profile-title">User Profile</h3>
-        <div className="profile-grid">
-          <div className="profile-item">
-            <p className="profile-label">Age</p>
-            <p className="profile-value">{userInfo?.age || 'Not specified'} years</p>
-          </div>
-          <div className="profile-item">
-            <p className="profile-label">Gender</p>
-            <p className="profile-value">{userInfo?.gender ? userInfo.gender.charAt(0).toUpperCase() + userInfo.gender.slice(1) : 'Not specified'}</p>
-          </div>
-          <div className="profile-item">
-            <p className="profile-label">BMI</p>
-            <p className="profile-value">{userInfo?.weight && userInfo?.height ?
-              (userInfo.weight / Math.pow(userInfo.height/100, 2)).toFixed(1) : 'N/A'}</p>
-          </div>
-          <div className="profile-item">
-            <p className="profile-label">Activity Level</p>
-            <p className="profile-value">{userInfo?.activity_level || 'Not specified'}</p>
-          </div>
-          <div className="profile-item">
-            <p className="profile-label">Medical Conditions</p>
-            <p className="profile-value">{userInfo?.medical_conditions && userInfo.medical_conditions.length > 0 ?
-              userInfo.medical_conditions.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ') : 'None'}</p>
-          </div>
-          <div className="profile-item">
-            <p className="profile-label">COVID Status</p>
-            <button
-              onClick={toggleCovidSeverity}
-              className="covid-toggle-button"
-              style={{
-                padding: '8px 12px',
-                backgroundColor: '#e3f2fd',
-                border: '2px solid #2196f3',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#1976d2',
-                transition: 'all 0.2s ease',
-                minWidth: '120px'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#bbdefb';
-                e.target.style.transform = 'scale(1.02)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = '#e3f2fd';
-                e.target.style.transform = 'scale(1)';
-              }}
-            >
-              {getCurrentCovidSeverity()} (Click to change)
-            </button>
           </div>
         </div>
       </div>
@@ -1996,6 +1909,51 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
 }
 
 function AnalysisTab({ foodLog, userProfile }) {
+  // Shared profile state — toggle here updates ALL charts
+  const [activeProfile, setActiveProfile] = useState(userProfile);
+
+  // Sync if parent profile changes
+  useEffect(() => {
+    if (userProfile) {
+      setActiveProfile(prev => ({
+        ...userProfile,
+        covid_severity: prev?.covid_severity !== undefined ? prev.covid_severity : userProfile.covid_severity,
+        longCovidSeverity: prev?.longCovidSeverity !== undefined ? prev.longCovidSeverity : userProfile.longCovidSeverity,
+        hasLongCovid: prev?.hasLongCovid !== undefined ? prev.hasLongCovid : userProfile.hasLongCovid
+      }));
+    }
+  }, [userProfile]);
+
+  // COVID severity toggle — cycles through None → mild → moderate → severe → very severe → None
+  const toggleCovidSeverity = () => {
+    const severities = [null, 'mild', 'moderate', 'severe', 'very severe'];
+    const currentSeverity = activeProfile?.covid_severity?.toLowerCase() || activeProfile?.longCovidSeverity?.toLowerCase() || null;
+    const currentIndex = severities.indexOf(currentSeverity);
+    const nextIndex = (currentIndex + 1) % severities.length;
+    const newSeverity = severities[nextIndex];
+
+    const updated = {
+      ...activeProfile,
+      covid_severity: newSeverity,
+      longCovidSeverity: newSeverity,
+      hasLongCovid: newSeverity !== null
+    };
+
+    if (newSeverity === null) {
+      delete updated.covid_severity;
+      delete updated.longCovidSeverity;
+      updated.hasLongCovid = false;
+    }
+
+    setActiveProfile(updated);
+  };
+
+  const getCurrentCovidSeverity = () => {
+    const severity = activeProfile?.covid_severity || activeProfile?.longCovidSeverity;
+    if (!severity || severity === 'None') return 'None';
+    return severity.charAt(0).toUpperCase() + severity.slice(1);
+  };
+
   if (!foodLog || !Array.isArray(foodLog)) {
     return (
       <div className="analysis-error">
@@ -2005,7 +1963,7 @@ function AnalysisTab({ foodLog, userProfile }) {
     );
   }
 
-  if (!userProfile) {
+  if (!activeProfile) {
     return (
       <div className="analysis-error">
         <h3>Profile Error</h3>
@@ -2017,7 +1975,7 @@ function AnalysisTab({ foodLog, userProfile }) {
   const today = formatDateForComparison(new Date());
   const analysisDate = foodLog.length > 0 ? foodLog[0].date : today;
   const todayMeals = foodLog.filter(entry => entry.date === today);
-  const { macroSums, microSums, efficiencyData } = getChartData(foodLog, userProfile);
+  const { macroSums, microSums, efficiencyData } = getChartData(foodLog, activeProfile);
 
   return (
     <div className="food-analysis-section">
@@ -2031,6 +1989,64 @@ function AnalysisTab({ foodLog, userProfile }) {
         </div>
       </div>
 
+      {/* User Profile — at the top so the COVID toggle affects all charts below */}
+      <div className="profile-card">
+        <h3 className="profile-title">User Profile</h3>
+        <div className="profile-grid">
+          <div className="profile-item">
+            <p className="profile-label">Age</p>
+            <p className="profile-value">{activeProfile?.age || 'Not specified'} years</p>
+          </div>
+          <div className="profile-item">
+            <p className="profile-label">Gender</p>
+            <p className="profile-value">{activeProfile?.gender ? activeProfile.gender.charAt(0).toUpperCase() + activeProfile.gender.slice(1) : 'Not specified'}</p>
+          </div>
+          <div className="profile-item">
+            <p className="profile-label">BMI</p>
+            <p className="profile-value">{activeProfile?.weight && activeProfile?.height ?
+              (activeProfile.weight / Math.pow(activeProfile.height/100, 2)).toFixed(1) : 'N/A'}</p>
+          </div>
+          <div className="profile-item">
+            <p className="profile-label">Activity Level</p>
+            <p className="profile-value">{activeProfile?.activity_level || 'Not specified'}</p>
+          </div>
+          <div className="profile-item">
+            <p className="profile-label">Medical Conditions</p>
+            <p className="profile-value">{activeProfile?.medical_conditions && activeProfile.medical_conditions.length > 0 ?
+              activeProfile.medical_conditions.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ') : 'None'}</p>
+          </div>
+          <div className="profile-item">
+            <p className="profile-label">COVID Status</p>
+            <button
+              onClick={toggleCovidSeverity}
+              className="covid-toggle-button"
+              style={{
+                padding: '8px 12px',
+                backgroundColor: '#e3f2fd',
+                border: '2px solid #2196f3',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#1976d2',
+                transition: 'all 0.2s ease',
+                minWidth: '120px'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#bbdefb';
+                e.target.style.transform = 'scale(1.02)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = '#e3f2fd';
+                e.target.style.transform = 'scale(1)';
+              }}
+            >
+              {getCurrentCovidSeverity()} (Click to change)
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="charts-container">
         
         <div className="chart-wrapper">
@@ -2038,7 +2054,7 @@ function AnalysisTab({ foodLog, userProfile }) {
             <h4>🎯 Macronutrient Balance</h4>
             <p className="chart-description">Your protein, carbohydrate, and fat intake compared to personalized recommendations</p>
           </div>
-          <MacronutrientChart userData={userProfile} userIntake={macroSums} />
+          <MacronutrientChart userData={activeProfile} userIntake={macroSums} />
         </div>
         
         <div className="chart-wrapper">
@@ -2046,7 +2062,7 @@ function AnalysisTab({ foodLog, userProfile }) {
             <h4>💊 Micronutrient Status</h4>
             <p className="chart-description">Essential vitamins and minerals as percentage of recommended daily amounts</p>
           </div>
-          <MicronutrientChart data={microSums} userData={userProfile} />
+          <MicronutrientChart data={microSums} userData={activeProfile} />
         </div>
         
         <div className="chart-wrapper">
@@ -2055,7 +2071,7 @@ function AnalysisTab({ foodLog, userProfile }) {
             <p className="chart-description">How effectively your body converts food calories into usable energy</p>
           </div>
           <div style={{ width: '100%', overflow: 'visible' }}>
-            <EfficiencyChart data={efficiencyData} userData={userProfile} />
+            <EfficiencyChart data={efficiencyData} userData={activeProfile} />
           </div>
         </div>
 
