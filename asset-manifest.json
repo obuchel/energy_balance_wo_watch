@@ -1,21 +1,21 @@
 {
   "files": {
-    "main.css": "/energy_balance_wo_watch/static/css/main.a05aedf2.css",
-    "main.js": "/energy_balance_wo_watch/static/js/main.564638d1.js",
+    "main.css": "/energy_balance_wo_watch/static/css/main.d1170fca.css",
+    "main.js": "/energy_balance_wo_watch/static/js/main.44cdcf78.js",
     "static/css/936.3a60f64b.chunk.css": "/energy_balance_wo_watch/static/css/936.3a60f64b.chunk.css",
     "static/js/936.5cd083b5.chunk.js": "/energy_balance_wo_watch/static/js/936.5cd083b5.chunk.js",
     "static/js/488.35916242.chunk.js": "/energy_balance_wo_watch/static/js/488.35916242.chunk.js",
     "static/js/869.526b7f5b.chunk.js": "/energy_balance_wo_watch/static/js/869.526b7f5b.chunk.js",
     "index.html": "/energy_balance_wo_watch/index.html",
-    "main.a05aedf2.css.map": "/energy_balance_wo_watch/static/css/main.a05aedf2.css.map",
-    "main.564638d1.js.map": "/energy_balance_wo_watch/static/js/main.564638d1.js.map",
+    "main.d1170fca.css.map": "/energy_balance_wo_watch/static/css/main.d1170fca.css.map",
+    "main.44cdcf78.js.map": "/energy_balance_wo_watch/static/js/main.44cdcf78.js.map",
     "936.3a60f64b.chunk.css.map": "/energy_balance_wo_watch/static/css/936.3a60f64b.chunk.css.map",
     "936.5cd083b5.chunk.js.map": "/energy_balance_wo_watch/static/js/936.5cd083b5.chunk.js.map",
     "488.35916242.chunk.js.map": "/energy_balance_wo_watch/static/js/488.35916242.chunk.js.map",
     "869.526b7f5b.chunk.js.map": "/energy_balance_wo_watch/static/js/869.526b7f5b.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.a05aedf2.css",
-    "static/js/main.564638d1.js"
+    "static/css/main.d1170fca.css",
+    "static/js/main.44cdcf78.js"
   ]
 }
