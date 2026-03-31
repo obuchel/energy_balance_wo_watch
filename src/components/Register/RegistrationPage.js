@@ -12,10 +12,27 @@ import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firesto
 // Updated InfoBox component
 
 
-const symptomOptions = [
-  'Fatigue', 'Post-exertional malaise', 'Brain fog', 'Headaches', 
-  'Shortness of breath', 'Heart palpitations', 'Dizziness', 'Joint/muscle pain',
-  'Sleep disturbances', 'Temperature regulation issues', 'Digestive issues'
+const symptomGroups = [
+  {
+    label: 'Energy & Exertion',
+    symptoms: ['Fatigue', 'Post-exertional malaise']
+  },
+  {
+    label: 'Neurological',
+    symptoms: ['Brain fog', 'Headaches', 'Dizziness']
+  },
+  {
+    label: 'Cardiovascular & Respiratory',
+    symptoms: ['Shortness of breath', 'Heart palpitations']
+  },
+  {
+    label: 'Physical',
+    symptoms: ['Joint/muscle pain', 'Temperature regulation issues']
+  },
+  {
+    label: 'Other',
+    symptoms: ['Sleep disturbances', 'Digestive issues']
+  }
 ];
 
 // Conversion utilities
@@ -417,189 +434,241 @@ function RegisterPage() {
                   {errors.email && <p className="error-message">{errors.email}</p>}
                 </div>
 
-                <div className="form-group">
-                  <Lock className="form-label-icon" />
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className={`form-input ${errors.password ? 'error' : ''}`}
-                    placeholder="Create a secure password"
-                    autoComplete="new-password"
-                  />
-                  <label className="form-label">Create Password *</label>
-                  {errors.password && <p className="error-message">{errors.password}</p>}
-                </div>
-
-                <div className="form-group">
-                  <Lock className="form-label-icon" />
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
-                    placeholder="Confirm your password"
-                    autoComplete="new-password"
-                  />
-                  <label className="form-label">Confirm Password *</label>
-                  {errors.confirmPassword && <p className="error-message">{errors.confirmPassword}</p>}
-                </div>
-
-                <div className="form-group">
-                  <input
-                    type="number"
-                    name="age"
-                    value={formData.age}
-                    onChange={handleInputChange}
-                    className={`form-input ${errors.age ? 'error' : ''}`}
-                    placeholder="Your age"
-                    min="13"
-                    max="120"
-                  />
-                  <label className="form-label">Age *</label>
-                  {errors.age && <p className="error-message">{errors.age}</p>}
-                </div>
-
-                <div className="form-group">
-                  <select
-                    name="gender"
-                    value={formData.gender}
-                    onChange={handleInputChange}
-                    className={`form-select ${errors.gender ? 'error' : ''}`}
-                  >
-                    <option value="">Select gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                    <option value="prefer-not-to-say">Prefer not to say</option>
-                  </select>
-                  <label className="form-label">Gender *</label>
-                  {errors.gender && <p className="error-message">{errors.gender}</p>}
-                </div>
-
-                {/* Unit System Selector */}
-                <div className="form-group">
-                  <select
-                    name="unitSystem"
-                    value={formData.unitSystem}
-                    onChange={handleUnitSystemChange}
-                    className="form-select"
-                  >
-                    <option value="metric">Metric (kg, cm)</option>
-                    <option value="imperial">Imperial (lbs, ft/in)</option>
-                  </select>
-                  <label className="form-label">Measurement System</label>
-                </div>
-
-                {/* Weight Field - changes based on unit system */}
-                <div className="form-group">
-                  <Scale className="form-label-icon" />
-                  <input
-                    type="number"
-                    name="weight"
-                    value={formData.weight}
-                    onChange={handleInputChange}
-                    className="form-input"
-                    placeholder="Optional"
-                    step="0.1"
-                  />
-                  <label className="form-label">
-                    Weight ({formData.unitSystem === 'metric' ? 'kg' : 'lbs'})
-                  </label>
-                </div>
-
-                {/* Height Fields - different for metric vs imperial */}
-                {formData.unitSystem === 'metric' ? (
+                {/* Password row */}
+                <div className="form-row form-row-2">
                   <div className="form-group">
-                    <Ruler className="form-label-icon" />
+                    <Lock className="form-label-icon" />
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className={`form-input ${errors.password ? 'error' : ''}`}
+                      placeholder="Create a secure password"
+                      autoComplete="new-password"
+                    />
+                    <label className="form-label">Create Password *</label>
+                    {errors.password && <p className="error-message">{errors.password}</p>}
+                  </div>
+
+                  <div className="form-group">
+                    <Lock className="form-label-icon" />
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleInputChange}
+                      className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
+                      placeholder="Confirm your password"
+                      autoComplete="new-password"
+                    />
+                    <label className="form-label">Confirm Password *</label>
+                    {errors.confirmPassword && <p className="error-message">{errors.confirmPassword}</p>}
+                  </div>
+                </div>
+
+                {/* Age + Gender row */}
+                <div className="form-row form-row-2">
+                  <div className="form-group">
                     <input
                       type="number"
-                      name="height"
-                      value={formData.height}
+                      name="age"
+                      value={formData.age}
+                      onChange={handleInputChange}
+                      className={`form-input ${errors.age ? 'error' : ''}`}
+                      placeholder="Your age"
+                      min="13"
+                      max="120"
+                    />
+                    <label className="form-label">Age *</label>
+                    {errors.age && <p className="error-message">{errors.age}</p>}
+                  </div>
+
+                  <div className="form-group">
+                    <select
+                      name="gender"
+                      value={formData.gender}
+                      onChange={handleInputChange}
+                      className={`form-select ${errors.gender ? 'error' : ''}`}
+                    >
+                      <option value="">Select gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                      <option value="prefer-not-to-say">Prefer not to say</option>
+                    </select>
+                    <label className="form-label">Gender *</label>
+                    {errors.gender && <p className="error-message">{errors.gender}</p>}
+                  </div>
+                </div>
+
+                {/* Measurements: Unit system + Weight + Height on one row */}
+                <div className="form-section-divider">Body Measurements <span>(optional)</span></div>
+                <div className="form-row form-row-3">
+                  <div className="form-group">
+                    <select
+                      name="unitSystem"
+                      value={formData.unitSystem}
+                      onChange={handleUnitSystemChange}
+                      className="form-select"
+                    >
+                      <option value="metric">Metric (kg, cm)</option>
+                      <option value="imperial">Imperial (lbs, ft/in)</option>
+                    </select>
+                    <label className="form-label">Units</label>
+                  </div>
+
+                  <div className="form-group">
+                    <Scale className="form-label-icon" />
+                    <input
+                      type="number"
+                      name="weight"
+                      value={formData.weight}
                       onChange={handleInputChange}
                       className="form-input"
                       placeholder="Optional"
+                      step="0.1"
                     />
-                    <label className="form-label">Height (cm)</label>
+                    <label className="form-label">
+                      Weight ({formData.unitSystem === 'metric' ? 'kg' : 'lbs'})
+                    </label>
                   </div>
-                ) : (
-                  <div className="form-grid two-cols">
+
+                  {formData.unitSystem === 'metric' ? (
                     <div className="form-group">
                       <Ruler className="form-label-icon" />
                       <input
                         type="number"
-                        name="heightFeet"
-                        value={formData.heightFeet}
+                        name="height"
+                        value={formData.height}
                         onChange={handleInputChange}
                         className="form-input"
                         placeholder="Optional"
-                        min="0"
-                        max="8"
                       />
-                      <label className="form-label">Height (feet)</label>
+                      <label className="form-label">Height (cm)</label>
                     </div>
-                    <div className="form-group">
-                      <input
-                        type="number"
-                        name="heightInches"
-                        value={formData.heightInches}
-                        onChange={handleInputChange}
-                        className="form-input"
-                        placeholder="Optional"
-                        min="0"
-                        max="11"
-                      />
-                      <label className="form-label">Height (inches)</label>
+                  ) : (
+                    <div className="form-row form-row-2 form-row-nested">
+                      <div className="form-group">
+                        <Ruler className="form-label-icon" />
+                        <input
+                          type="number"
+                          name="heightFeet"
+                          value={formData.heightFeet}
+                          onChange={handleInputChange}
+                          className="form-input"
+                          placeholder="ft"
+                          min="0"
+                          max="8"
+                        />
+                        <label className="form-label">Feet</label>
+                      </div>
+                      <div className="form-group">
+                        <input
+                          type="number"
+                          name="heightInches"
+                          value={formData.heightInches}
+                          onChange={handleInputChange}
+                          className="form-input"
+                          placeholder="in"
+                          min="0"
+                          max="11"
+                        />
+                        <label className="form-label">Inches</label>
+                      </div>
                     </div>
+                  )}
+                </div>
+
+                {/* COVID Date + Duration row */}
+                <div className="form-section-divider">Condition History</div>
+                <div className="form-row form-row-2">
+                  <div className="form-group">
+                    <Calendar className="form-label-icon" />
+                    <input
+                      type="date"
+                      name="covidDate"
+                      value={formData.covidDate}
+                      onChange={handleInputChange}
+                      className="form-input"
+                    />
+                    <label className="form-label">When did you first get COVID?</label>
                   </div>
-                )}
 
-                <div className="form-group">
-                  <Calendar className="form-label-icon" />
-                  <input
-                    type="date"
-                    name="covidDate"
-                    value={formData.covidDate}
-                    onChange={handleInputChange}
-                    className="form-input"
-                  />
-                  <label className="form-label">When did you first get COVID?</label>
+                  <div className="form-group">
+                    <select
+                      name="covidDuration"
+                      value={formData.covidDuration}
+                      onChange={handleInputChange}
+                      className="form-select"
+                    >
+                      <option value="">Select duration</option>
+                      <option value="less-than-1-month">Less than 1 month</option>
+                      <option value="1-3-months">1-3 months</option>
+                      <option value="3-6-months">3-6 months</option>
+                      <option value="6-12-months">6-12 months</option>
+                      <option value="1-2-years">1-2 years</option>
+                      <option value="more-than-2-years">More than 2 years</option>
+                    </select>
+                    <label className="form-label">Long COVID Duration</label>
+                  </div>
                 </div>
 
-                <div className="form-group">
-                  <select
-                    name="covidDuration"
-                    value={formData.covidDuration}
-                    onChange={handleInputChange}
-                    className="form-select"
-                  >
-                    <option value="">Select duration</option>
-                    <option value="less-than-1-month">Less than 1 month</option>
-                    <option value="1-3-months">1-3 months</option>
-                    <option value="3-6-months">3-6 months</option>
-                    <option value="6-12-months">6-12 months</option>
-                    <option value="1-2-years">1-2 years</option>
-                    <option value="more-than-2-years">More than 2 years</option>
-                  </select>
-                  <label className="form-label">Long COVID Duration</label>
-                </div>
-
-                <div className="form-group">
-                  <select
-                    name="severity"
-                    value={formData.severity}
-                    onChange={handleInputChange}
-                    className="form-select"
-                  >
-                    <option value="">Select severity</option>
-                    <option value="mild">Mild</option>
-                    <option value="moderate">Moderate</option>
-                    <option value="severe">Severe</option>
-                    <option value="very-severe">Very Severe</option>
-                  </select>
-                  <label className="form-label">COVID Severity</label>
+                {/* Severity — radio cards with inline definitions so responses are consistent */}
+                <div className="form-group severity-group">
+                  <p className="severity-group-label">
+                    Long COVID Severity
+                    <span className="severity-group-note">
+                      Select the option that best describes your <em>typical</em> day.
+                    </span>
+                  </p>
+                  <div className="severity-cards">
+                    {[
+                      {
+                        value: 'mild',
+                        label: 'Mild',
+                        icon: '🟡',
+                        definition: 'Able to carry out most daily activities with minor adjustments. Symptoms are present but do not prevent work, study, or self-care. Some days are harder than others.'
+                      },
+                      {
+                        value: 'moderate',
+                        label: 'Moderate',
+                        icon: '🟠',
+                        definition: 'Significant reduction in activity compared to before illness. Unable to sustain full-time work or study. Symptoms worsen after exertion (PEM). Housebound on some days.'
+                      },
+                      {
+                        value: 'severe',
+                        label: 'Severe',
+                        icon: '🔴',
+                        definition: 'Mostly housebound. Unable to work. Substantial cognitive and physical limitations most days. Light activity causes symptom flares that take hours or days to recover from.'
+                      },
+                      {
+                        value: 'very-severe',
+                        label: 'Very Severe',
+                        icon: '🟣',
+                        definition: 'Largely or fully bedbound. Dependent on others for basic needs. Very sensitive to light, sound, or touch. Even minimal activity causes significant and prolonged worsening of symptoms.'
+                      }
+                    ].map(({ value, label, icon, definition }) => (
+                      <label
+                        key={value}
+                        className={`severity-card ${formData.severity === value ? 'selected' : ''}`}
+                      >
+                        <input
+                          type="radio"
+                          name="severity"
+                          value={value}
+                          checked={formData.severity === value}
+                          onChange={handleInputChange}
+                          className="severity-radio-input"
+                        />
+                        <span className="severity-card-header">
+                          <span className="severity-icon">{icon}</span>
+                          <span className="severity-label">{label}</span>
+                        </span>
+                        <span className="severity-definition">{definition}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -607,26 +676,31 @@ function RegisterPage() {
                 <label className="form-label">
                   What symptoms do you experience? (Select all that apply)
                 </label>
-                <div className="symptoms-grid">
-                  {symptomOptions.map((symptom) => (
-                    <label
-                      key={symptom}
-                      className={`symptom-checkbox ${
-                        formData.symptoms.includes(symptom) ? 'selected' : ''
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        name="symptoms"
-                        value={symptom}
-                        checked={formData.symptoms.includes(symptom)}
-                        onChange={handleInputChange}
-                        className="symptom-checkbox-input"
-                      />
-                      <span className="symptom-checkbox-text">{symptom}</span>
-                    </label>
-                  ))}
-                </div>
+                {symptomGroups.map((group) => (
+                  <div key={group.label} className="symptom-group">
+                    <p className="symptom-group-label">{group.label}</p>
+                    <div className="symptoms-grid" style={{ gridTemplateColumns: `repeat(${group.symptoms.length}, 1fr)` }}>
+                      {group.symptoms.map((symptom) => (
+                        <label
+                          key={symptom}
+                          className={`symptom-checkbox ${
+                            formData.symptoms.includes(symptom) ? 'selected' : ''
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            name="symptoms"
+                            value={symptom}
+                            checked={formData.symptoms.includes(symptom)}
+                            onChange={handleInputChange}
+                            className="symptom-checkbox-input"
+                          />
+                          <span className="symptom-checkbox-text">{symptom}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="form-group">
@@ -676,7 +750,31 @@ function RegisterPage() {
         </div>
       </div>
 
-   
+      <style>{`
+        .severity-group { margin-bottom: 1.25rem; }
+        .severity-group-label {
+          font-size: 0.9rem; font-weight: 600; color: #374151;
+          margin: 0 0 0.5rem 0; display: flex; flex-direction: column; gap: 3px;
+        }
+        .severity-group-note { font-size: 0.78rem; font-weight: 400; color: #6b7280; }
+        .severity-cards { display: flex; flex-direction: column; gap: 0.5rem; }
+        .severity-card {
+          display: flex; flex-direction: column; gap: 4px;
+          padding: 12px 14px; border: 2px solid #e5e7eb; border-radius: 10px;
+          cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease;
+          background: #fff; position: relative;
+        }
+        .severity-card:hover { border-color: #93c5fd; background: #f0f9ff; }
+        .severity-card.selected { border-color: #3b82f6; background: #eff6ff; }
+        .severity-radio-input { position: absolute; opacity: 0; width: 0; height: 0; }
+        .severity-card-header { display: flex; align-items: center; gap: 8px; }
+        .severity-icon { font-size: 1rem; line-height: 1; }
+        .severity-label { font-weight: 600; font-size: 0.9rem; color: #111827; }
+        .severity-card.selected .severity-label { color: #1d4ed8; }
+        .severity-definition {
+          font-size: 0.8rem; color: #4b5563; line-height: 1.45; padding-left: 1.75rem;
+        }
+      `}</style>
 
     </div>
   );

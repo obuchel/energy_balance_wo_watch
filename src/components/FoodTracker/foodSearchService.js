@@ -1,4 +1,3 @@
-import Fuse from 'fuse.js';
 import { openDB } from 'idb';
 
 const DB_NAME = 'FoodSearchDB';
@@ -156,11 +155,40 @@ self.onmessage = async function(e) {
         // Convert to array and sort
         const combinedResults = Array.from(resultMap.values())
           .sort((a, b) => {
-            // First: Items matching ALL words come first
+            const nameA = (a.name || '').toLowerCase();
+            const nameB = (b.name || '').toLowerCase();
+
+            // Tier 1: Exact name match
+            const exactA = nameA === query;
+            const exactB = nameB === query;
+            if (exactA !== exactB) return exactA ? -1 : 1;
+
+            // Tier 2: Query is an exact comma-delimited segment of the name.
+            const segA = nameA.split(',').some(seg => seg.trim() === query);
+            const segB = nameB.split(',').some(seg => seg.trim() === query);
+            if (segA !== segB) return segA ? -1 : 1;
+
+            // Tier 3: Name starts with the full query
+            const startsA = nameA.startsWith(query);
+            const startsB = nameB.startsWith(query);
+            if (startsA !== startsB) return startsA ? -1 : 1;
+
+            // Tier 3b: starts with query AND next char is a word boundary
+            // e.g. "apple" → "Apple, raw" ranks above "Applesauce"
+            const wbA = startsA && (nameA.length === query.length || /[^a-z]/i.test(nameA[query.length]));
+            const wbB = startsB && (nameB.length === query.length || /[^a-z]/i.test(nameB[query.length]));
+            if (wbA !== wbB) return wbA ? -1 : 1;
+
+            // Tier 3: Name contains the full query string
+            const containsA = nameA.includes(query);
+            const containsB = nameB.includes(query);
+            if (containsA !== containsB) return containsA ? -1 : 1;
+
+            // Tier 4: Items matching more query words come first
             if (b.wordMatches !== a.wordMatches) {
               return b.wordMatches - a.wordMatches;
             }
-            // Second: Better Fuse score
+            // Tier 5: Better Fuse score
             return a.fuseScore - b.fuseScore;
           })
           .slice(0, maxResults)
@@ -188,6 +216,12 @@ self.onmessage = async function(e) {
         self.postMessage({ 
           type: 'ALL_FOODS', 
           payload: { foods: foodData } 
+        });
+        break;
+      default:
+        self.postMessage({
+          type: 'ERROR',
+          payload: { message: 'Unknown message type: ' + type }
         });
         break;
     }
@@ -304,6 +338,9 @@ class FoodSearchService {
                 clearTimeout(timeout);
                 console.error('❌ Worker error:', payload.message);
                 reject(new Error(payload.message));
+                break;
+              default:
+                // Ignore unknown message types during initialisation
                 break;
             }
           };

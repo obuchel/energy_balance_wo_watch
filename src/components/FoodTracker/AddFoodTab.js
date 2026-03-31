@@ -401,12 +401,7 @@ const LongCovidSidePanel = ({ selectedFood, selectedMeal, foodLog = [], isSearch
           </p>
         </div>
         
-        <div className="nutrition-categories">
-          <div className="category-section beneficial">
-            <h4>✅ Quick Anti-Inflammatory Guide</h4>
-            <p>Focus on omega-3 rich fish, berries, leafy greens, and anti-inflammatory spices.</p>
-          </div>
-        </div>
+  
       </div>
     );
   }
@@ -414,44 +409,17 @@ const LongCovidSidePanel = ({ selectedFood, selectedMeal, foodLog = [], isSearch
   return (
     <div className="long-covid-side-panel">
       <h3>🦠 Long COVID Nutrition Guide</h3>
-
-      <div className="nutrition-categories">
-        <div className="category-section beneficial">
-          <h4>✅ Anti-Inflammatory Foods</h4>
-          <ul>
-            <li><strong>Fatty Fish:</strong> Salmon, mackerel, sardines (omega-3s)</li>
-            <li><strong>Berries:</strong> Blueberries, strawberries (antioxidants)</li>
-            <li><strong>Leafy Greens:</strong> Spinach, kale (vitamins, minerals)</li>
-            <li><strong>Nuts:</strong> Walnuts, almonds (healthy fats)</li>
-            <li><strong>Turmeric:</strong> Contains curcumin (anti-inflammatory)</li>
-            <li><strong>Ginger:</strong> Natural anti-inflammatory</li>
-            <li><strong>Green Tea:</strong> Polyphenols reduce inflammation</li>
-          </ul>
-        </div>
-
-        <div className="category-section neutral">
-          <h4>ℹ️ Recommended Foods</h4>
-          <ul>
-            <li><strong>Whole Grains:</strong> Oats, quinoa, brown rice</li>
-            <li><strong>Legumes:</strong> Lentils, chickpeas (protein, fiber)</li>
-            <li><strong>Fermented Foods:</strong> Yogurt, kefir (probiotics)</li>
-            <li><strong>Olive Oil:</strong> Extra virgin (healthy fats)</li>
-          </ul>
-        </div>
-
-        <div className="category-section caution">
-          <h4>⚠️ Foods to Limit</h4>
-          <ul>
-            <li><strong>Processed Foods:</strong> High in inflammatory compounds</li>
-            <li><strong>Added Sugars:</strong> Can trigger inflammation</li>
-            <li><strong>Refined Carbs:</strong> White bread, pastries</li>
-            <li><strong>Trans Fats:</strong> Margarine, fried foods</li>
-          </ul>
-        </div>
-      </div>
-
-      <div className="guide-footer">
-        <p><em>💡 Select a food item above to see detailed Long COVID nutritional analysis</em></p>
+      <div className="guide-empty-state">
+        <div className="guide-empty-icon">🔍</div>
+        <p>Search for a food above to see its Long COVID analysis.</p>
+        <p>Each food record includes:</p>
+        <ul>
+          <li>✅ / ⚠️ MCAS &amp; histamine rating</li>
+          <li>🔥 Anti-inflammatory level</li>
+          <li>⚡ Energy &amp; mitochondrial impact</li>
+          <li>🧬 Functional compounds</li>
+          <li>📋 Long COVID–specific cautions</li>
+        </ul>
       </div>
     </div>
   );
@@ -825,6 +793,64 @@ const AddFoodTab = ({
           .serving-with-unit {
             min-width: 140px;
           }
+        }
+
+        /* ── MCAS / POTS additions in LC Nutrition Guide ── */
+        .mcas-notice {
+          background: #fff7ed;
+          border: 1px solid #fed7aa;
+          border-left: 4px solid #f97316;
+          border-radius: 8px;
+          padding: 10px 14px;
+          font-size: 13px;
+          color: #431407;
+          line-height: 1.5;
+          margin-bottom: 12px;
+        }
+        .mcas-flag {
+          font-size: 11.5px;
+          font-weight: 600;
+          color: #b45309;
+          background: #fef3c7;
+          border-radius: 4px;
+          padding: 1px 5px;
+          margin-left: 4px;
+          white-space: nowrap;
+        }
+        .pots-section h4 { color: #0f766e; }
+        .pots-section { border-left-color: #14b8a6 !important; }
+        .mcas-caution-section h4 { color: #b45309; }
+        .mcas-caution-section { border-left-color: #f97316 !important; background: #fffbeb; }
+        .mcas-caution-section ul li { margin-bottom: 6px; font-size: 13px; }
+
+        /* Empty state when no food selected */
+        .guide-empty-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          padding: 32px 16px;
+          color: #6b7280;
+        }
+        .guide-empty-icon {
+          font-size: 2.5rem;
+          margin-bottom: 12px;
+        }
+        .guide-empty-state p {
+          margin: 0 0 8px 0;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+        .guide-empty-state ul {
+          list-style: none;
+          padding: 0;
+          margin: 8px 0 0 0;
+          text-align: left;
+        }
+        .guide-empty-state ul li {
+          font-size: 13px;
+          padding: 3px 0;
+          color: #4b5563;
         }
       `}</style>
     </div>

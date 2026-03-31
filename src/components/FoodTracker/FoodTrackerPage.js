@@ -117,6 +117,49 @@ const mealTypes = ['Breakfast', 'Morning Snack', 'Lunch', 'Afternoon Snack', 'Di
 const TABS = ['Add Food', 'Food Journal', 'Analysis','Trends'];
 const ENTRIES_PER_PAGE = 20;
 
+// Term aliases: maps non-US English or common shorthand to FNDDS equivalents.
+// Defined at module level so it's stable and never needs to be in useCallback deps.
+const SEARCH_ALIASES = {
+  // British/Commonwealth English → US English
+  'porridge':       'oatmeal',
+  'courgette':      'zucchini',
+  'aubergine':      'eggplant',
+  'coriander':      'cilantro',
+  'rocket':         'arugula',
+  'biscuit':        'cookie',
+  'crisps':         'chips potato',
+  'swede':          'rutabaga',
+  'beetroot':       'beets',
+  'minced beef':    'ground beef',
+  'mince':          'ground beef',
+  'prawns':         'shrimp',
+  'chips':          'french fries',
+  'jacket potato':  'baked potato',
+  // Drinks commonly searched (LC / POTS contexts)
+  'rooibos':        'tea herbal',
+  'herbal tea':     'tea herbal',
+  'decaf':          'coffee decaffeinated',
+  'decaf coffee':   'coffee decaffeinated',
+  'kombucha':       'tea kombucha',
+  // Electrolytes / POTS
+  'salt':           'sodium chloride',
+  'sodium':         'sodium chloride',
+  'electrolyte':    'sports drink electrolyte',
+  // Other common terms
+  'nut butter':     'peanut butter',
+  'plant milk':     'almond milk',
+};
+
+const resolveSearchTerm = (term) => {
+  const lower = term.toLowerCase().trim();
+  if (SEARCH_ALIASES[lower]) return SEARCH_ALIASES[lower];
+  for (const [alias, replacement] of Object.entries(SEARCH_ALIASES)) {
+    if (lower.startsWith(alias)) return replacement + lower.slice(alias.length);
+  }
+  return lower;
+};
+
+
 function FoodTrackerPage() {
   const navigate = useNavigate();
 
@@ -477,29 +520,28 @@ const entryData = {
   }, [checkUserAuthentication]);
 
   // Helper function for COVID food rating
-  const getCovidFoodRating = (foodName) => {
-    const foodLower = foodName.toLowerCase();
+  // Reads LC/MCAS rating purely from the food object's data properties.
+  // No string matching — correctness depends entirely on the food JSON data.
+  // properties.histamine: 'low' | 'moderate' | 'high' | 'liberator'
+  // properties.safeForMCAS: true | false
+  // longCovidRelevance.antiInflammatory: 'high' | 'moderate' | 'low' | 'negative'
+  const getCovidFoodRating = (food) => {
+    if (!food || typeof food !== 'object') return 'neutral';
+    const props = food.properties || {};
+    const relevance = food.longCovidRelevance || {};
 
-    const beneficial = [
-      'salmon', 'mackerel', 'sardines', 'tuna', 'trout',
-      'blueberries', 'strawberries', 'raspberries', 'blackberries',
-      'spinach', 'kale', 'broccoli', 'brussels sprouts',
-      'walnuts', 'almonds', 'chia seeds', 'flax seeds',
-      'turmeric', 'ginger', 'garlic', 'onion',
-      'olive oil', 'avocado', 'sweet potato',
-      'green tea', 'dark chocolate'
-    ];
+    // Explicit MCAS unsafe or high histamine → caution
+    if (props.safeForMCAS === false) return 'caution';
+    if (props.histamine === 'high' || props.histamine === 'liberator') return 'caution';
+    if (relevance.antiInflammatory === 'negative' || relevance.antiInflammatory === 'very-low')
+      return 'caution';
 
-    const caution = [
-      'processed meat', 'bacon', 'sausage', 'hot dog',
-      'french fries', 'fried chicken', 'fried',
-      'white bread', 'white rice', 'pastry',
-      'candy', 'soda', 'sugar', 'margarine',
-      'ice cream', 'chips'
-    ];
+    // Explicitly safe and beneficial
+    if (props.safeForMCAS === true && props.histamine === 'low') return 'beneficial';
+    if (relevance.antiInflammatory === 'high' || relevance.antiInflammatory === 'very-high')
+      return 'beneficial';
 
-    if (beneficial.some(food => foodLower.includes(food))) return 'beneficial';
-    if (caution.some(food => foodLower.includes(food))) return 'caution';
+    // Moderate — show as neutral
     return 'neutral';
   };
 
@@ -854,9 +896,11 @@ const entryData = {
 
   // Updated fetchSuggestions to use Web Worker search
   const fetchSuggestions = useCallback(async () => {
-    const normalizedSearch = search.toLowerCase().trim();
+    const rawSearch = search.toLowerCase().trim();
+    // Apply alias resolution so non-US / shorthand terms find results
+    const normalizedSearch = resolveSearchTerm(rawSearch);
 
-    console.log('fetchSuggestions called with:', normalizedSearch);
+    console.log('fetchSuggestions called with:', rawSearch, '→', normalizedSearch);
 
     if (normalizedSearch.length < 2) {
       setSuggestions([]);
@@ -964,6 +1008,13 @@ const entryData = {
         </div>
       </div>
 
+      {/* Show loading notice if service isn't ready yet */}
+      {!searchServiceReady && search.length >= 2 && (
+        <div className="search-loading-notice">
+          <small>⏳ Food database is loading — results will appear shortly…</small>
+        </div>
+      )}
+
       {suggestions.length > 0 && searchFocused && (
         <div className="suggestions-container">
           <ul className="suggestions-list unlimited">
@@ -992,22 +1043,23 @@ const entryData = {
                       📏
                     </span>
                   )}
-                  <span className={`covid-indicator ${getCovidFoodRating(s.name)}`}>
-                      {getCovidFoodRating(s.name) === 'beneficial' ? '✅' : 
-                       getCovidFoodRating(s.name) === 'caution' ? '⚠️' : 'ℹ️'}
+                  <span className={`covid-indicator ${getCovidFoodRating(s)}`}>
+                      {getCovidFoodRating(s) === 'beneficial' ? '✅' : 
+                       getCovidFoodRating(s) === 'caution' ? '⚠️' : 'ℹ️'}
                     </span>
                 </div>
               </li>
             ))}
           </ul>
-          
-          {suggestions.length > 20 && (
-            <div className="search-tips">
-              <small>
-                💡 Tip: Type more specific terms to narrow down results, or scroll to browse all {suggestions.length} matches
-              </small>
-            </div>
-          )}
+        </div>
+      )}
+
+      {/* Tip rendered OUTSIDE the scroll container — never overlaps list items */}
+      {suggestions.length > 20 && searchFocused && (
+        <div className="search-tips-external">
+          <small>
+            💡 Tip: Type more specific terms to narrow results, or scroll to browse all {suggestions.length} matches
+          </small>
         </div>
       )}
     </div>

@@ -23,10 +23,12 @@ import {
   AlertTriangle
 } from 'lucide-react';
 
-const symptomOptions = [
-  'Fatigue', 'Post-exertional malaise', 'Brain fog', 'Headaches', 
-  'Shortness of breath', 'Heart palpitations', 'Dizziness', 'Joint/muscle pain',
-  'Sleep disturbances', 'Temperature regulation issues', 'Digestive issues'
+const symptomGroups = [
+  { label: 'Energy & Exertion',            symptoms: ['Fatigue', 'Post-exertional malaise'] },
+  { label: 'Neurological',                  symptoms: ['Brain fog', 'Headaches', 'Dizziness'] },
+  { label: 'Cardiovascular & Respiratory', symptoms: ['Shortness of breath', 'Heart palpitations'] },
+  { label: 'Physical',                      symptoms: ['Joint/muscle pain', 'Temperature regulation issues'] },
+  { label: 'Other',                         symptoms: ['Sleep disturbances', 'Digestive issues'] },
 ];
 
 // Conversion utilities
@@ -668,7 +670,7 @@ const PersonalSettings = () => {
               <p className="field-note">Email cannot be changed</p>
             </div>
 
-            <div className="form-grid two-cols">
+            <div className="form-row form-row-2">
               <div className="form-group">
                 <input
                   type="number"
@@ -702,21 +704,21 @@ const PersonalSettings = () => {
               </div>
             </div>
 
-            {/* Unit System Selector */}
-            <div className="form-group">
-              <select
-                name="unitSystem"
-                value={formData.unitSystem}
-                onChange={handleUnitSystemChange}
-                className="form-select"
-              >
-                <option value="metric">Metric (kg, cm)</option>
-                <option value="imperial">Imperial (lbs, ft/in)</option>
-              </select>
-              <label className="form-label">Measurement System</label>
-            </div>
+            <div className="form-section-divider">Body Measurements <span>(optional)</span></div>
+            <div className="form-row form-row-3">
+              <div className="form-group">
+                <select
+                  name="unitSystem"
+                  value={formData.unitSystem}
+                  onChange={handleUnitSystemChange}
+                  className="form-select"
+                >
+                  <option value="metric">Metric (kg, cm)</option>
+                  <option value="imperial">Imperial (lbs, ft/in)</option>
+                </select>
+                <label className="form-label">Units</label>
+              </div>
 
-            <div className="form-grid two-cols">
               <div className="form-group">
                 <Scale className="form-label-icon" />
                 <input
@@ -747,33 +749,34 @@ const PersonalSettings = () => {
                   <label className="form-label">Height (cm)</label>
                 </div>
               ) : (
-                <div className="form-group height-imperial-group">
-                  <Ruler className="form-label-icon" />
-                  <div className="height-imperial-inputs">
+                <div className="form-row form-row-2 form-row-nested">
+                  <div className="form-group">
+                    <Ruler className="form-label-icon" />
                     <input
                       type="number"
                       name="heightFeet"
                       value={formData.heightFeet}
                       onChange={handleInputChange}
                       className="form-input height-feet"
-                      placeholder="Feet"
+                      placeholder="ft"
                       min="0"
                       max="8"
                     />
-                    <span className="height-separator">ft</span>
+                    <label className="form-label">Feet</label>
+                  </div>
+                  <div className="form-group">
                     <input
                       type="number"
                       name="heightInches"
                       value={formData.heightInches}
                       onChange={handleInputChange}
                       className="form-input height-inches"
-                      placeholder="In"
+                      placeholder="in"
                       min="0"
                       max="11"
                     />
-                    <span className="height-separator">in</span>
+                    <label className="form-label">Inches</label>
                   </div>
-                  <label className="form-label floating">Height</label>
                 </div>
               )}
             </div>
@@ -788,7 +791,8 @@ const PersonalSettings = () => {
           </div>
 
           <div className="form-sections">
-            <div className="form-grid two-cols">
+            <div className="form-section-divider">Condition History</div>
+            <div className="form-row form-row-2">
               <div className="form-group">
                 <Calendar className="form-label-icon" />
                 <input
@@ -840,26 +844,29 @@ const PersonalSettings = () => {
               <label className="form-label">
                 Current Symptoms (Select all that apply)
               </label>
-              <div className="symptoms-grid">
-                {symptomOptions.map((symptom) => (
-                  <label
-                    key={symptom}
-                    className={`symptom-checkbox ${
-                      formData.symptoms.includes(symptom) ? 'selected' : ''
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      name="symptoms"
-                      value={symptom}
-                      checked={formData.symptoms.includes(symptom)}
-                      onChange={handleInputChange}
-                      className="symptom-checkbox-input"
-                    />
-                    <span className="symptom-checkbox-text">{symptom}</span>
-                  </label>
-                ))}
-              </div>
+              {symptomGroups.map((group) => (
+                <div key={group.label} className="symptom-group">
+                  <p className="symptom-group-label">{group.label}</p>
+                  <div className="symptoms-grid" style={{ gridTemplateColumns: `repeat(${group.symptoms.length}, 1fr)` }}>
+                    {group.symptoms.map((symptom) => (
+                      <label
+                        key={symptom}
+                        className={`symptom-checkbox ${formData.symptoms.includes(symptom) ? 'selected' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          name="symptoms"
+                          value={symptom}
+                          checked={formData.symptoms.includes(symptom)}
+                          onChange={handleInputChange}
+                          className="symptom-checkbox-input"
+                        />
+                        <span className="symptom-checkbox-text">{symptom}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="form-group">
@@ -937,50 +944,52 @@ const PersonalSettings = () => {
                   )}
                 </div>
 
-                <div className="form-group">
-                  <Lock className="form-label-icon" />
-                  <input
-                    type={showNewPassword ? 'text' : 'password'}
-                    name="newPassword"
-                    value={passwordData.newPassword}
-                    onChange={handlePasswordChange}
-                    className={`form-input ${errors.newPassword ? 'error' : ''}`}
-                    placeholder="Enter new password"
-                  />
-                  <label className="form-label">New Password</label>
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="password-toggle"
-                  >
-                    {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                  {errors.newPassword && (
-                    <p className="error-message">{errors.newPassword}</p>
-                  )}
-                </div>
+                <div className="form-row form-row-2">
+                  <div className="form-group">
+                    <Lock className="form-label-icon" />
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      name="newPassword"
+                      value={passwordData.newPassword}
+                      onChange={handlePasswordChange}
+                      className={`form-input ${errors.newPassword ? 'error' : ''}`}
+                      placeholder="Enter new password"
+                    />
+                    <label className="form-label">New Password</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="password-toggle"
+                    >
+                      {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                    {errors.newPassword && (
+                      <p className="error-message">{errors.newPassword}</p>
+                    )}
+                  </div>
 
-                <div className="form-group">
-                  <Lock className="form-label-icon" />
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    name="confirmPassword"
-                    value={passwordData.confirmPassword}
-                    onChange={handlePasswordChange}
-                    className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
-                    placeholder="Confirm new password"
-                  />
-                  <label className="form-label">Confirm New Password</label>
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="password-toggle"
-                  >
-                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                  {errors.confirmPassword && (
-                    <p className="error-message">{errors.confirmPassword}</p>
-                  )}
+                  <div className="form-group">
+                    <Lock className="form-label-icon" />
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      name="confirmPassword"
+                      value={passwordData.confirmPassword}
+                      onChange={handlePasswordChange}
+                      className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
+                      placeholder="Confirm new password"
+                    />
+                    <label className="form-label">Confirm New Password</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="password-toggle"
+                    >
+                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                    {errors.confirmPassword && (
+                      <p className="error-message">{errors.confirmPassword}</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
