@@ -466,7 +466,10 @@ const AddFoodTab = ({
   // Other props
   foodLog,
   MicronutrientRadarChart,
-  userProfile // NEW - to get unit preference
+  userProfile, // to get unit preference
+  // Sodium adjustment
+  sodiumOverride,
+  renderSodiumAdjustment
 }) => {
   // Determine user's preferred unit system
   const userUnitSystem = userProfile?.unitSystem || 'metric';
@@ -644,6 +647,9 @@ const AddFoodTab = ({
             />
           </div>
         )}
+
+        {/* Sodium adjustment — only shown when food has meaningful sodium */}
+        {selectedMeal && renderSodiumAdjustment && renderSodiumAdjustment()}
 
         {/* Submit button */}
         <button 

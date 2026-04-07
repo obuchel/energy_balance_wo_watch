@@ -195,6 +195,8 @@ function FoodTrackerPage() {
   const [selectedMeal, setSelectedMeal] = useState(null);
   const [fields, setFields] = useState({});
   const [mealType, setMealType] = useState('Breakfast');
+  // Sodium override: null = use USDA base value; number = user-adjusted mg
+  const [sodiumOverride, setSodiumOverride] = useState(null);
   const [time, setTime] = useState(() => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   const [date, setDate] = useState(() => getTodayInUserTimezone());
   // longCovidAdjust checkbox removed - Long COVID features are always active
@@ -346,6 +348,14 @@ function FoodTrackerPage() {
             longCovidCautions: entry.longCovidCautions || [],
             longCovidRelevance: entry.longCovidRelevance || {}
           });
+
+          // Restore sodium override if this entry was previously adjusted
+          const storedSodium = entry.micronutrients?.sodium;
+          if (storedSodium?.userAdjusted && storedSodium?.usdaValue != null) {
+            setSodiumOverride(parseFloat(storedSodium.value));
+          } else {
+            setSodiumOverride(null);
+          }
         }
       } catch (err) {
         console.error('Error finding meal for edit:', err);
@@ -414,6 +424,20 @@ const entryData = {
 
       entryData.metabolicEfficiency = calculateMetabolicEfficiency(entryData);
 
+      // Apply sodium override if user adjusted it
+      if (sodiumOverride !== null && entryData.micronutrients?.sodium) {
+        const originalSodium = parseFloat(entryData.micronutrients.sodium.value) || 0;
+        entryData.micronutrients = {
+          ...entryData.micronutrients,
+          sodium: {
+            ...entryData.micronutrients.sodium,
+            value: sodiumOverride,
+            usdaValue: originalSodium,   // preserve original for reference
+            userAdjusted: true
+          }
+        };
+      }
+
       if (editingEntry) {
         await updateDoc(
           doc(db, 'users', currentUser.id, 'food_journal', editingEntry.id), 
@@ -449,6 +473,7 @@ const entryData = {
       setFields({});
       setSelectedMeal(null);
       setSearch('');
+      setSodiumOverride(null);
     } catch (err) {
       console.error('Error logging food:', err);
       setError(`Failed to ${editingEntry ? 'update' : 'log'} food: ${err.message}`);
@@ -465,6 +490,7 @@ const entryData = {
     setSearch('');
     setSuccess('');
     setError('');
+    setSodiumOverride(null);
   };
 
   // Fetch user profile from Firestore
@@ -739,6 +765,7 @@ const entryData = {
     setSearch(meal.name);
     setSuggestions([]);
     setSearchFocused(false);
+    setSodiumOverride(null); // Reset adjustment when new food selected
     
     // Determine default serving
     let defaultServing = 100;
@@ -853,6 +880,7 @@ const entryData = {
     
     setSuccess(`Serving updated to ${description} (${weight}${unit})`);
     setTimeout(() => setSuccess(''), 2000);
+    setSodiumOverride(null); // Serving changed — reset sodium override so it recalculates from new serving weight
     
     console.log('=== Fields Updated ===');
   };
@@ -955,6 +983,116 @@ const entryData = {
     setSelectedMeal(null);
     setSearchFocused(false);
     setFields({});
+  };
+
+  // Estimate the floor of natural/intrinsic sodium (what's in the ingredient
+  // before any salt is added). USDA values for recipes include typical added salt,
+  // so ~15% is a conservative estimate of the intrinsic portion. Minimum 5mg.
+  const getIntrinsicSodiumFloor = (baseSodiumMg) =>
+    Math.max(5, Math.round(baseSodiumMg * 0.15));
+
+  // Ceiling: 150% of USDA base — covers noticeably salty restaurant dishes
+  // or heavy-handed home seasoning without being outrageous.
+  const getSodiumCeiling = (baseSodiumMg) =>
+    Math.round(baseSodiumMg * 1.5);
+
+  const renderSodiumAdjustment = () => {
+    if (!selectedMeal || !fields.micronutrients?.sodium) return null;
+
+    const sodiumEntry = fields.micronutrients.sodium;
+    // When an entry was previously adjusted, usdaValue holds the true USDA base.
+    // Fall back to value (first log, no prior adjustment).
+    const baseSodium = parseFloat(sodiumEntry.usdaValue ?? sodiumEntry.value) || 0;
+    if (baseSodium < 20) return null;
+
+    const floor   = getIntrinsicSodiumFloor(baseSodium);
+    const ceiling = getSodiumCeiling(baseSodium);
+    const effective = sodiumOverride !== null ? sodiumOverride : baseSodium;
+    const isAdjusted = sodiumOverride !== null;
+
+    // How far the user moved relative to the USDA base, and in which direction
+    const diffMg   = Math.round(effective - baseSodium);
+    const diffPct  = Math.round(Math.abs(diffMg / baseSodium) * 100);
+    const direction = diffMg > 0 ? 'higher' : 'lower';
+
+    return (
+      <div className="sodium-adjustment-panel">
+        <div className="sodium-panel-header">
+          <span className="sodium-panel-title">🧂 Salt Adjustment</span>
+          {isAdjusted && (
+            <button
+              type="button"
+              className="sodium-reset-btn"
+              onClick={() => setSodiumOverride(null)}
+            >
+              Reset to USDA
+            </button>
+          )}
+        </div>
+
+        <p className="sodium-usda-note">
+          USDA value <strong>{Math.round(baseSodium)}mg</strong> reflects this food
+          as <em>typically prepared</em>. Slide left if you cooked with less salt,
+          right if it tasted saltier than usual (e.g. restaurant portion).
+          Range: ~{floor}mg (no added salt) → {ceiling}mg (very salty).
+        </p>
+
+        <div className="sodium-slider-row">
+          <span className="sodium-label-min">No added salt<br/><small>~{floor}mg</small></span>
+          <div className="sodium-slider-track">
+            <input
+              type="range"
+              min={floor}
+              max={ceiling}
+              step={1}
+              value={Math.round(effective)}
+              onChange={(e) => setSodiumOverride(parseFloat(e.target.value))}
+              className="sodium-slider"
+            />
+            {/* USDA marker line */}
+            <div
+              className="sodium-usda-marker"
+              style={{ left: `${((baseSodium - floor) / (ceiling - floor)) * 100}%` }}
+              title={`USDA base: ${Math.round(baseSodium)}mg`}
+            />
+          </div>
+          <span className="sodium-label-max">Very salty<br/><small>~{ceiling}mg</small></span>
+        </div>
+
+        <div className="sodium-readout-row">
+          <div className="sodium-readout">
+            <input
+              type="number"
+              min={floor}
+              max={ceiling}
+              value={Math.round(effective)}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                if (!isNaN(val)) {
+                  setSodiumOverride(Math.max(floor, Math.min(ceiling, val)));
+                }
+              }}
+              className="sodium-number-input"
+            />
+            <span className="sodium-unit-label">mg sodium</span>
+          </div>
+          {isAdjusted && diffPct >= 1 && (
+            <span className={`sodium-delta-badge ${direction}`}>
+              {direction === 'higher' ? '+' : '−'}{diffPct}% vs USDA
+            </span>
+          )}
+        </div>
+
+        {isAdjusted && (
+          <p className="sodium-save-note">
+            ✓ Will log <strong>{Math.round(effective)}mg</strong> sodium
+            {diffPct >= 1 && (
+              <> ({direction === 'higher' ? '+' : '−'}{diffPct}% vs USDA base of {Math.round(baseSodium)}mg)</>
+            )}
+          </p>
+        )}
+      </div>
+    );
   };
 
   // Search input renderer
@@ -1293,7 +1431,7 @@ const entryData = {
   handleCancelEdit={handleCancelEdit}
   handleFieldChange={handleFieldChange}
   handleServingSelection={handleServingSelection}
-  handleUnitChange={handleUnitChange}  // ⭐ ADD THIS LINE
+  handleUnitChange={handleUnitChange}
   handleTimeChange={handleTimeChange}
   convertTo24Hour={convertTo24Hour}
   handleLogFood={handleLogFood}
@@ -1301,10 +1439,12 @@ const entryData = {
   success={success}
   error={error}
   mealTypes={mealTypes}
-  //pyodideStatus={pyodideStatus}
   foodLog={foodLog}
   MicronutrientRadarChart={MicronutrientRadarChart}
-  userProfile={userProfile}  // ⭐ ADD THIS LINE
+  userProfile={userProfile}
+  // Sodium adjustment
+  sodiumOverride={sodiumOverride}
+  renderSodiumAdjustment={renderSodiumAdjustment}
 />
 
         )}

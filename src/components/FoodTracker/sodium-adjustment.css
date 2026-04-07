@@ -1,0 +1,138 @@
+/* ===== SODIUM ADJUSTMENT PANEL ===== */
+.sodium-adjustment-panel {
+  margin-top: 1.25rem;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.9), rgba(219, 234, 254, 0.6));
+  border: 1.5px solid rgba(59, 130, 246, 0.25);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+}
+
+.sodium-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.625rem;
+}
+
+.sodium-panel-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e40af;
+  letter-spacing: 0.01em;
+}
+
+.sodium-reset-btn {
+  font-size: 0.7rem;
+  color: #6b7280;
+  background: rgba(255,255,255,0.8);
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.sodium-reset-btn:hover {
+  background: #fff;
+  color: #374151;
+  border-color: #9ca3af;
+}
+
+.sodium-usda-note {
+  font-size: 0.78rem;
+  color: #4b5563;
+  line-height: 1.5;
+  margin: 0 0 0.875rem 0;
+}
+.sodium-usda-note strong { color: #1e3a8a; }
+.sodium-usda-note em { font-style: italic; color: #6b7280; }
+
+/* Slider row */
+.sodium-slider-row {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr 5rem;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.625rem;
+}
+
+.sodium-label-min,
+.sodium-label-max {
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: #6b7280;
+}
+.sodium-label-min { text-align: left; }
+.sodium-label-max { text-align: right; }
+.sodium-label-min small,
+.sodium-label-max small { 
+  color: #9ca3af; 
+  font-size: 0.65rem; 
+}
+
+.sodium-slider {
+  width: 100%;
+  height: 6px;
+  accent-color: #3b82f6;
+  cursor: pointer;
+}
+
+/* Readout row */
+.sodium-readout-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.sodium-readout {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255,255,255,0.85);
+  border: 1.5px solid #93c5fd;
+  border-radius: 8px;
+  padding: 0.3rem 0.6rem;
+}
+
+.sodium-number-input {
+  width: 4rem;
+  border: none;
+  background: transparent;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e3a8a;
+  text-align: right;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.sodium-number-input::-webkit-outer-spin-button,
+.sodium-number-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.sodium-unit-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.sodium-reduction-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #1d4ed8;
+  background: rgba(219, 234, 254, 0.9);
+  border: 1px solid #93c5fd;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  white-space: nowrap;
+}
+
+.sodium-save-note {
+  font-size: 0.75rem;
+  color: #166534;
+  background: rgba(220, 252, 231, 0.7);
+  border: 1px solid #86efac;
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
+  margin: 0;
+}
+.sodium-save-note strong { color: #14532d; }

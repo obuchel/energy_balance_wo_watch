@@ -6,6 +6,285 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import "../Common.css";
 import './SymptomTracker.css'; // Import the CSS file
 
+// ── SymptomInstance ────────────────────────────────────────────────────────
+// Defined OUTSIDE LongCovidTracker so its identity is stable across re-renders.
+// If it were defined inside, every parent re-render would create a new component
+// type, causing React to unmount/remount it and reset showDetails to false.
+const SymptomInstance = React.memo(({ instance, instanceIndex, symptomId, onUpdate, onRemove, severityLevels }) => {
+  const [showDetails, setShowDetails] = useState(false);
+  const [newTrigger, setNewTrigger] = useState('');
+  const [localStartTime, setLocalStartTime] = useState(instance.startTime || '');
+  const [localDuration, setLocalDuration] = useState(instance.duration || '');
+
+  const severityInfo = severityLevels[instance.severity];
+
+  React.useEffect(() => {
+    setLocalStartTime(instance.startTime || '');
+    setLocalDuration(instance.duration || '');
+  }, [instance.startTime, instance.duration]);
+
+  const handleLevelClick = useCallback((level) => {
+    onUpdate(symptomId, instance.id, { severity: level });
+  }, [symptomId, instance.id, onUpdate]);
+
+  const handleAdjust = useCallback((direction) => {
+    const newLevel = direction === 'increase'
+      ? Math.min(instance.severity + 1, 5)
+      : Math.max(instance.severity - 1, 0);
+    onUpdate(symptomId, instance.id, { severity: newLevel });
+  }, [symptomId, instance.id, instance.severity, onUpdate]);
+
+  const handleStartTimeBlur = useCallback(() => {
+    onUpdate(symptomId, instance.id, { startTime: localStartTime });
+  }, [symptomId, instance.id, localStartTime, onUpdate]);
+
+  const handleDurationBlur = useCallback(() => {
+    onUpdate(symptomId, instance.id, { duration: localDuration });
+  }, [symptomId, instance.id, localDuration, onUpdate]);
+
+  const addTrigger = useCallback((e) => {
+    e.preventDefault();
+    if (newTrigger.trim()) {
+      const currentTriggers = instance.triggers || [];
+      onUpdate(symptomId, instance.id, {
+        triggers: [...currentTriggers, newTrigger.trim()]
+      });
+      setNewTrigger('');
+    }
+  }, [symptomId, instance.id, newTrigger, instance.triggers, onUpdate]);
+
+  const removeTrigger = useCallback((triggerIndex) => {
+    const currentTriggers = instance.triggers || [];
+    const updatedTriggers = currentTriggers.filter((_, i) => i !== triggerIndex);
+    onUpdate(symptomId, instance.id, { triggers: updatedTriggers });
+  }, [symptomId, instance.id, instance.triggers, onUpdate]);
+
+  return (
+    <div className="symptom-instance">
+      {/* Instance header */}
+      <div className="instance-header">
+        <div className="instance-time-info">
+          <Clock size={14} />
+          <span className="instance-time">
+            {instance.startTime || 'No time set'}
+          </span>
+          {instance.duration && (
+            <span className="instance-duration">
+              {instance.duration}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => onRemove(symptomId, instance.id)}
+          className="remove-instance-btn"
+          title="Remove this instance"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Severity indicator */}
+      <div
+        className="instance-severity-badge"
+        style={{
+          background: severityInfo.color,
+          color: severityInfo.textColor
+        }}
+      >
+        {severityInfo.label} ({instance.severity})
+      </div>
+
+      {/* Severity controls */}
+      <div className="severity-controls">
+        <button
+          onClick={() => handleAdjust('decrease')}
+          disabled={instance.severity === 0}
+          className={`severity-adjust-btn ${instance.severity === 0 ? 'disabled' : ''}`}
+        >
+          ➖
+        </button>
+
+        <div className="severity-dots">
+          {[1, 2, 3, 4, 5].map(level => (
+            <div
+              key={level}
+              onClick={() => handleLevelClick(level)}
+              className={`severity-dot ${level <= instance.severity ? 'active' : ''}`}
+            />
+          ))}
+        </div>
+
+        <button
+          onClick={() => handleAdjust('increase')}
+          disabled={instance.severity === 5}
+          className={`severity-adjust-btn ${instance.severity === 5 ? 'disabled' : ''}`}
+        >
+          ➕
+        </button>
+      </div>
+
+      {/* Details toggle */}
+      {instance.severity > 0 && (
+        <button
+          onClick={() => setShowDetails(!showDetails)}
+          className="details-toggle-btn"
+        >
+          {showDetails ? '📋 Hide Details' : '📋 Add Details'}
+        </button>
+      )}
+
+      {/* Details section — stays open because showDetails lives in a stable component */}
+      {showDetails && instance.severity > 0 && (
+        <div className="instance-details">
+          <div className="detail-field">
+            <label className="detail-label">Start Time</label>
+            <input
+              type="time"
+              value={localStartTime}
+              onChange={(e) => setLocalStartTime(e.target.value)}
+              onBlur={handleStartTimeBlur}
+              className="detail-input"
+            />
+          </div>
+
+          <div className="detail-field">
+            <label className="detail-label">Duration</label>
+            <input
+              type="text"
+              value={localDuration}
+              onChange={(e) => setLocalDuration(e.target.value)}
+              onBlur={handleDurationBlur}
+              placeholder="e.g., 2 hours, 30 minutes"
+              className="detail-input"
+            />
+          </div>
+
+          <div className="detail-field">
+            <label className="detail-label">Triggers</label>
+
+            {instance.triggers && instance.triggers.length > 0 && (
+              <div className="triggers-list">
+                {instance.triggers.map((trigger, index) => (
+                  <div key={index} className="trigger-item">
+                    <span>{trigger}</span>
+                    <button
+                      onClick={() => removeTrigger(index)}
+                      className="remove-trigger-btn"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <form onSubmit={addTrigger} className="add-trigger-form">
+              <input
+                type="text"
+                value={newTrigger}
+                onChange={(e) => setNewTrigger(e.target.value)}
+                placeholder="Add trigger"
+                className="trigger-input"
+              />
+              <button
+                type="submit"
+                disabled={!newTrigger.trim()}
+                className={`add-trigger-btn ${!newTrigger.trim() ? 'disabled' : ''}`}
+              >
+                Add
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+// ── SymptomCard ────────────────────────────────────────────────────────────
+// Also defined OUTSIDE LongCovidTracker for the same stability reason.
+const SymptomCard = React.memo(({
+  symptomId,
+  symptom,
+  categoryKey,
+  instances,
+  isOngoing,
+  severityLevels,
+  onAddInstance,
+  onUpdateInstance,
+  onRemoveInstance,
+  onRemoveCustom,
+}) => {
+  const hasInstances = instances.length > 0;
+  const maxSeverity = hasInstances ? Math.max(...instances.map(i => i.severity || 0)) : 0;
+  const severityInfo = severityLevels[maxSeverity];
+
+  return (
+    <div className="symptom-card">
+      {/* Custom symptom delete button */}
+      {symptom.isCustom && (
+        <button
+          onClick={() => onRemoveCustom(symptomId)}
+          className="delete-custom-btn"
+          title="Remove custom symptom"
+        >
+          <X size={12} />
+        </button>
+      )}
+
+      {/* Symptom header */}
+      <div className="symptom-header">
+        <h4 className="symptom-name">{symptom.name}</h4>
+        {isOngoing && (
+          <span className="ongoing-badge">ONGOING</span>
+        )}
+      </div>
+
+      <div className="symptom-description">
+        {symptom.description}
+        {symptom.isCustom && (
+          <span className="custom-badge">Custom</span>
+        )}
+      </div>
+
+      {hasInstances && (
+        <div
+          className="severity-badge"
+          style={{
+            background: severityInfo.color,
+            color: severityInfo.textColor
+          }}
+        >
+          Max: {severityInfo.label} ({maxSeverity}) • {instances.length} instance{instances.length !== 1 ? 's' : ''}
+        </div>
+      )}
+
+      {/* Instances */}
+      {instances.map((instance, index) => (
+        <SymptomInstance
+          key={instance.id}
+          instance={instance}
+          instanceIndex={index}
+          symptomId={symptomId}
+          onUpdate={onUpdateInstance}
+          onRemove={onRemoveInstance}
+          severityLevels={severityLevels}
+        />
+      ))}
+
+      {/* Add instance button */}
+      <button
+        onClick={() => onAddInstance(symptomId)}
+        className="add-instance-btn"
+      >
+        <Plus size={16} />
+        {instances.length === 0 ? 'Log this symptom' : 'Add another instance'}
+      </button>
+    </div>
+  );
+});
+
+// ── LongCovidTracker ───────────────────────────────────────────────────────
 const LongCovidTracker = () => {
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(() => {
@@ -573,281 +852,8 @@ const LongCovidTracker = () => {
     );
   }, [syncStatus, lastSyncDate, retrySync]);
 
-  // Enhanced SymptomCard component with multiple instances support
-  const SymptomCard = React.memo(({ symptomId, symptom, categoryKey }) => {
-    const instances = getSymptomInstances(symptomId) || [];
-    const hasInstances = instances.length > 0;
-    const maxSeverity = hasInstances ? Math.max(...instances.map(i => i.severity || 0)) : 0;
-    const severityInfo = severityLevels[maxSeverity];
-
-    return (
-      <div className="symptom-card">
-        {/* Custom symptom delete button */}
-        {symptom.isCustom && (
-          <button
-            onClick={() => removeCustomSymptom(symptomId)}
-            className="delete-custom-btn"
-            title="Remove custom symptom"
-          >
-            <X size={12} />
-          </button>
-        )}
-
-        {/* Symptom header */}
-        <div className="symptom-header">
-          <h4 className="symptom-name">
-            {symptom.name}
-          </h4>
-          {isSymptomOngoing(symptomId) && (
-            <span className="ongoing-badge">
-              ONGOING
-            </span>
-          )}
-        </div>
-        
-        <div className="symptom-description">
-          {symptom.description}
-          {symptom.isCustom && (
-            <span className="custom-badge">
-              Custom
-            </span>
-          )}
-        </div>
-        
-        {hasInstances && (
-          <div 
-            className="severity-badge"
-            style={{
-              background: severityInfo.color,
-              color: severityInfo.textColor
-            }}
-          >
-            Max: {severityInfo.label} ({maxSeverity}) • {instances.length} instance{instances.length !== 1 ? 's' : ''}
-          </div>
-        )}
-
-        {/* Instances */}
-        {instances.map((instance, index) => (
-          <SymptomInstance
-            key={instance.id}
-            instance={instance}
-            instanceIndex={index}
-            symptomId={symptomId}
-            onUpdate={updateSymptomInstance}
-            onRemove={removeSymptomInstance}
-            severityLevels={severityLevels}
-          />
-        ))}
-
-        {/* Add instance button */}
-        <button
-          onClick={() => addSymptomInstance(symptomId)}
-          className="add-instance-btn"
-        >
-          <Plus size={16} />
-          {instances.length === 0 ? 'Log this symptom' : 'Add another instance'}
-        </button>
-      </div>
-    );
-  });
-
-  // Individual symptom instance component
-  const SymptomInstance = React.memo(({ instance, instanceIndex, symptomId, onUpdate, onRemove, severityLevels }) => {
-    const [showDetails, setShowDetails] = useState(false);
-    const [newTrigger, setNewTrigger] = useState('');
-    const [localStartTime, setLocalStartTime] = useState(instance.startTime || '');
-    const [localDuration, setLocalDuration] = useState(instance.duration || '');
-
-    const severityInfo = severityLevels[instance.severity];
-
-    React.useEffect(() => {
-      setLocalStartTime(instance.startTime || '');
-      setLocalDuration(instance.duration || '');
-    }, [instance.startTime, instance.duration]);
-
-    const handleLevelClick = useCallback((level) => {
-      onUpdate(symptomId, instance.id, { severity: level });
-    }, [symptomId, instance.id, onUpdate]);
-
-    const handleAdjust = useCallback((direction) => {
-      const newLevel = direction === 'increase' 
-        ? Math.min(instance.severity + 1, 5)
-        : Math.max(instance.severity - 1, 0);
-      onUpdate(symptomId, instance.id, { severity: newLevel });
-    }, [symptomId, instance.id, instance.severity, onUpdate]);
-
-    const handleStartTimeBlur = useCallback(() => {
-      onUpdate(symptomId, instance.id, { startTime: localStartTime });
-    }, [symptomId, instance.id, localStartTime, onUpdate]);
-
-    const handleDurationBlur = useCallback(() => {
-      onUpdate(symptomId, instance.id, { duration: localDuration });
-    }, [symptomId, instance.id, localDuration, onUpdate]);
-
-    const addTrigger = useCallback((e) => {
-      e.preventDefault();
-      if (newTrigger.trim()) {
-        const currentTriggers = instance.triggers || [];
-        onUpdate(symptomId, instance.id, { 
-          triggers: [...currentTriggers, newTrigger.trim()] 
-        });
-        setNewTrigger('');
-      }
-    }, [symptomId, instance.id, newTrigger, instance.triggers, onUpdate]);
-
-    const removeTrigger = useCallback((triggerIndex) => {
-      const currentTriggers = instance.triggers || [];
-      const updatedTriggers = currentTriggers.filter((_, i) => i !== triggerIndex);
-      onUpdate(symptomId, instance.id, { triggers: updatedTriggers });
-    }, [symptomId, instance.id, instance.triggers, onUpdate]);
-
-    return (
-      <div className="symptom-instance">
-        {/* Instance header */}
-        <div className="instance-header">
-          <div className="instance-time-info">
-            <Clock size={14} />
-            <span className="instance-time">
-              {instance.startTime || 'No time set'}
-            </span>
-            {instance.duration && (
-              <span className="instance-duration">
-                {instance.duration}
-              </span>
-            )}
-          </div>
-          <button
-            onClick={() => onRemove(symptomId, instance.id)}
-            className="remove-instance-btn"
-            title="Remove this instance"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Severity indicator */}
-        <div 
-          className="instance-severity-badge"
-          style={{
-            background: severityInfo.color,
-            color: severityInfo.textColor
-          }}
-        >
-          {severityInfo.label} ({instance.severity})
-        </div>
-        
-        {/* Severity controls */}
-        <div className="severity-controls">
-          <button 
-            onClick={() => handleAdjust('decrease')}
-            disabled={instance.severity === 0}
-            className={`severity-adjust-btn ${instance.severity === 0 ? 'disabled' : ''}`}
-          >
-            ➖
-          </button>
-          
-          <div className="severity-dots">
-            {[1, 2, 3, 4, 5].map(level => (
-              <div
-                key={level}
-                onClick={() => handleLevelClick(level)}
-                className={`severity-dot ${level <= instance.severity ? 'active' : ''}`}
-              />
-            ))}
-          </div>
-          
-          <button 
-            onClick={() => handleAdjust('increase')}
-            disabled={instance.severity === 5}
-            className={`severity-adjust-btn ${instance.severity === 5 ? 'disabled' : ''}`}
-          >
-            ➕
-          </button>
-        </div>
-
-        {/* Details toggle */}
-        {instance.severity > 0 && (
-          <button
-            onClick={() => setShowDetails(!showDetails)}
-            className="details-toggle-btn"
-          >
-            {showDetails ? '📋 Hide Details' : '📋 Add Details'}
-          </button>
-        )}
-
-        {/* Details section */}
-        {showDetails && instance.severity > 0 && (
-          <div className="instance-details">
-            <div className="detail-field">
-              <label className="detail-label">
-                Start Time
-              </label>
-              <input
-                type="time"
-                value={localStartTime}
-                onChange={(e) => setLocalStartTime(e.target.value)}
-                onBlur={handleStartTimeBlur}
-                className="detail-input"
-              />
-            </div>
-
-            <div className="detail-field">
-              <label className="detail-label">
-                Duration
-              </label>
-              <input
-                type="text"
-                value={localDuration}
-                onChange={(e) => setLocalDuration(e.target.value)}
-                onBlur={handleDurationBlur}
-                placeholder="e.g., 2 hours, 30 minutes"
-                className="detail-input"
-              />
-            </div>
-
-            <div className="detail-field">
-              <label className="detail-label">
-                Triggers
-              </label>
-              
-              {instance.triggers && instance.triggers.length > 0 && (
-                <div className="triggers-list">
-                  {instance.triggers.map((trigger, index) => (
-                    <div key={index} className="trigger-item">
-                      <span>{trigger}</span>
-                      <button
-                        onClick={() => removeTrigger(index)}
-                        className="remove-trigger-btn"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <form onSubmit={addTrigger} className="add-trigger-form">
-                <input
-                  type="text"
-                  value={newTrigger}
-                  onChange={(e) => setNewTrigger(e.target.value)}
-                  placeholder="Add trigger"
-                  className="trigger-input"
-                />
-                <button
-                  type="submit"
-                  disabled={!newTrigger.trim()}
-                  className={`add-trigger-btn ${!newTrigger.trim() ? 'disabled' : ''}`}
-                >
-                  Add
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  });
+  // SymptomCard and SymptomInstance are now defined outside this component
+  // (see top of file) so their identities remain stable across re-renders.
 
   // Add custom symptom modal
   const AddSymptomModal = React.memo(() => {
@@ -1165,6 +1171,13 @@ const LongCovidTracker = () => {
                     symptomId={symptomId}
                     symptom={symptom}
                     categoryKey={categoryKey}
+                    instances={getSymptomInstances(symptomId)}
+                    isOngoing={isSymptomOngoing(symptomId)}
+                    severityLevels={severityLevels}
+                    onAddInstance={addSymptomInstance}
+                    onUpdateInstance={updateSymptomInstance}
+                    onRemoveInstance={removeSymptomInstance}
+                    onRemoveCustom={removeCustomSymptom}
                   />
                 ))}
               </div>

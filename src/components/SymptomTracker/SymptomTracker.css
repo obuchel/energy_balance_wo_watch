@@ -1444,13 +1444,15 @@
   }
   
   .wellbeing-controls {
-    flex-direction: column;
-    gap: 16px;
-    text-align: center;
+    /* Keep as a row on mobile — labels must stay left/right of the buttons */
+    flex-direction: row;
+    gap: 12px;
+    flex-wrap: nowrap;
   }
   
   .wellbeing-label {
-    min-width: auto;
+    min-width: 60px;
+    font-size: 0.75rem;
   }
   
   .wellbeing-rating {
