@@ -1,14 +1,14 @@
 {
   "files": {
     "main.css": "/energy_balance_wo_watch/static/css/main.9b6baf0f.css",
-    "main.js": "/energy_balance_wo_watch/static/js/main.4abc806b.js",
+    "main.js": "/energy_balance_wo_watch/static/js/main.d72b4f43.js",
     "static/css/936.d21aa77b.chunk.css": "/energy_balance_wo_watch/static/css/936.d21aa77b.chunk.css",
     "static/js/936.49c46136.chunk.js": "/energy_balance_wo_watch/static/js/936.49c46136.chunk.js",
     "static/js/488.35916242.chunk.js": "/energy_balance_wo_watch/static/js/488.35916242.chunk.js",
     "static/js/869.526b7f5b.chunk.js": "/energy_balance_wo_watch/static/js/869.526b7f5b.chunk.js",
     "index.html": "/energy_balance_wo_watch/index.html",
     "main.9b6baf0f.css.map": "/energy_balance_wo_watch/static/css/main.9b6baf0f.css.map",
-    "main.4abc806b.js.map": "/energy_balance_wo_watch/static/js/main.4abc806b.js.map",
+    "main.d72b4f43.js.map": "/energy_balance_wo_watch/static/js/main.d72b4f43.js.map",
     "936.d21aa77b.chunk.css.map": "/energy_balance_wo_watch/static/css/936.d21aa77b.chunk.css.map",
     "936.49c46136.chunk.js.map": "/energy_balance_wo_watch/static/js/936.49c46136.chunk.js.map",
     "488.35916242.chunk.js.map": "/energy_balance_wo_watch/static/js/488.35916242.chunk.js.map",
@@ -16,6 +16,6 @@
   },
   "entrypoints": [
     "static/css/main.9b6baf0f.css",
-    "static/js/main.4abc806b.js"
+    "static/js/main.d72b4f43.js"
   ]
 }
