@@ -2593,3 +2593,191 @@ input[name="serving"] {
     gap: 0.5rem;
   }
 }
+
+
+/* ================================================================
+   CONDITION COMPATIBILITY STRIP
+   Displays long_covid / me_cfs / mcas / pots ratings + notes
+   ================================================================ */
+
+.condition-compatibility {
+  margin-bottom: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.condition-badges {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.condition-badges:has(+ .condition-notes) {
+  margin-bottom: 8px;
+}
+
+.condition-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 7px 4px 6px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  border: 1.5px solid transparent;
+  transition: transform 0.15s ease;
+}
+
+.condition-badge:hover {
+  transform: translateY(-1px);
+}
+
+.condition-icon {
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.condition-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+/* ok — green */
+.condition-badge.condition-ok {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
+.condition-badge.condition-ok .condition-icon {
+  color: #16a34a;
+}
+
+/* caution — amber */
+.condition-badge.condition-caution {
+  background: #fef9c3;
+  color: #854d0e;
+  border-color: #fde047;
+}
+
+.condition-badge.condition-caution .condition-icon {
+  color: #ca8a04;
+}
+
+/* avoid — red */
+.condition-badge.condition-avoid {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.condition-badge.condition-avoid .condition-icon {
+  color: #dc2626;
+}
+
+/* unknown / missing value */
+.condition-badge.condition-unknown,
+.condition-badge.condition- {
+  background: #f3f4f6;
+  color: #6b7280;
+  border-color: #d1d5db;
+}
+
+/* Notes line below the badges */
+.condition-notes {
+  margin: 0;
+  font-size: 12px;
+  color: #374151;
+  line-height: 1.5;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+  font-style: italic;
+}
+
+/* Narrow panel — stack 2×2 */
+@media (max-width: 340px) {
+  .condition-badges {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+
+/* ================================================================
+   CONDITION NUTRITION NOTES  (Analysis tab — below profile card)
+   ================================================================ */
+
+.condition-nutrition-notes {
+  margin: 0 0 24px 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.cnn-heading {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.cnn-intro {
+  font-size: 12.5px;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0;
+  padding: 8px 18px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  font-style: italic;
+}
+
+.cnn-condition-block {
+  border-left: 4px solid;
+  margin: 10px 14px;
+  border-radius: 8px;
+  padding: 11px 14px;
+}
+
+.cnn-condition-block:last-child { margin-bottom: 14px; }
+
+.cnn-condition-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.cnn-icon { font-size: 15px; line-height: 1; }
+
+.cnn-notes-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cnn-note-item { font-size: 12.5px; line-height: 1.55; color: #1e293b; }
+.cnn-nutrient  { font-weight: 700; margin-right: 2px; }
+.cnn-guidance  { color: #374151; }
+
+@media (max-width: 768px) {
+  .cnn-condition-block { margin: 8px 8px; padding: 9px 10px; }
+  .cnn-heading  { padding: 12px 12px 8px; }
+  .cnn-intro    { padding: 6px 12px 10px; }
+}

@@ -1,13 +1,38 @@
-import React, { useState,  useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import _ from 'lodash';
 
+// ── localStorage helpers ────────────────────────────────────────────────────
+const LS_KEY = 'vitaminTrends_prefs';
+
+const loadPrefs = () => {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+};
+
+const savePrefs = (prefs) => {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(prefs)); } catch {}
+};
+// ───────────────────────────────────────────────────────────────────────────
+
 const VitaminTimeSeriesTab = ({ foodLog = [], userProfile = {} }) => {
-  const [selectedVitamins, setSelectedVitamins] = useState(['vitamin_c', 'vitamin_d', 'iron', 'calcium']);
-  const [timeRange, setTimeRange] = useState(30); // days
-  const [groupBy, setGroupBy] = useState('day'); // day, week, month
-  const [showRecommended, setShowRecommended] = useState(true);
-  //const [selectedUnit, setSelectedUnit] = useState('mg'); // mg, mcg, IU
+  const saved = loadPrefs();
+
+  const [selectedVitamins, setSelectedVitamins] = useState(
+    saved?.selectedVitamins ?? ['vitamin_c', 'vitamin_d', 'iron', 'calcium']
+  );
+  const [timeRange, setTimeRange] = useState(saved?.timeRange ?? 30);
+  const [groupBy, setGroupBy]     = useState(saved?.groupBy   ?? 'day');
+  const [showRecommended, setShowRecommended] = useState(
+    saved?.showRecommended ?? true
+  );
+
+  // Persist whenever any preference changes
+  useEffect(() => {
+    savePrefs({ selectedVitamins, timeRange, groupBy, showRecommended });
+  }, [selectedVitamins, timeRange, groupBy, showRecommended]);
 
   // Vitamin reference values (daily recommended intake)
   const vitaminRecommendations = {

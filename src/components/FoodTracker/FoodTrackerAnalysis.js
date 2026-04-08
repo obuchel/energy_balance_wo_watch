@@ -41,22 +41,6 @@ const isSameOrAfter = (dateString1, dateString2) => {
   return date1 >= date2;
 };
 
-/**
- * Shared helper: detect Long COVID status from user profile.
- * Checks all possible field names: covid_severity, longCovidSeverity, hasLongCovid.
- * Returns { hasCondition: boolean, severity: string|null }
- */
-const detectCovidStatus = (userData) => {
-  if (!userData) return { hasCondition: false, severity: null };
-  
-  const severity = userData.covid_severity || userData.longCovidSeverity || null;
-  const hasCondition = (severity && severity !== 'None' && severity !== null) || userData.hasLongCovid === true;
-  
-  return {
-    hasCondition,
-    severity: hasCondition ? (severity || 'moderate') : null
-  };
-};
 
 // FIXED: Enhanced nutrient key mapping function
 function normalizeNutrientKey(key) {
@@ -392,19 +376,6 @@ function MacronutrientChart({ userData, userIntake = {} }) {
       const activityMultiplier = activityFactors[activity_level] || 1.375;
       let tdee = bmr * activityMultiplier;
       
-      {
-        const { hasCondition, severity } = detectCovidStatus(userData);
-        if (hasCondition) {
-          const severityTDEE = {
-            'mild': 1.05,
-            'moderate': 1.07,
-            'severe': 1.10,
-            'very severe': 1.12
-          };
-          tdee *= severityTDEE[severity?.toLowerCase()] || 1.07;
-        }
-      }
-      
       const bmi = calculateBMI(weight, height);
       if (bmi) {
         if (bmi < 18.5) {
@@ -422,23 +393,7 @@ function MacronutrientChart({ userData, userIntake = {} }) {
       
       let proteinPct = 0.25;
       let carbsPct = 0.45;
-      let fatPct = 0.3;
-      
-      {
-        const { hasCondition, severity } = detectCovidStatus(userData);
-        if (hasCondition) {
-          const severityMacros = {
-            'mild':         { protein: 0.28, carbs: 0.42, fat: 0.30 },
-            'moderate':     { protein: 0.30, carbs: 0.40, fat: 0.30 },
-            'severe':       { protein: 0.32, carbs: 0.38, fat: 0.30 },
-            'very severe':  { protein: 0.35, carbs: 0.35, fat: 0.30 }
-          };
-          const macros = severityMacros[severity?.toLowerCase()] || severityMacros['moderate'];
-          proteinPct = macros.protein;
-          carbsPct = macros.carbs;
-          fatPct = macros.fat;
-        }
-      }
+      let fatPct = 0.30;
       
       const bmi = calculateBMI(userData.weight, userData.height);
       if (bmi && bmi < 18.5) {
@@ -474,30 +429,11 @@ function MacronutrientChart({ userData, userIntake = {} }) {
     const carbs = (totalCalories * macroDistribution.carbs / 4).toFixed(1);
     const fat = (totalCalories * macroDistribution.fat / 9).toFixed(1);
     
-    const covidNotes = {
-      protein: 'Increased to support immune function and tissue repair',
-      carbs: 'Focus on complex carbs with anti-inflammatory properties',
-      fat: 'Higher proportion of omega-3s recommended to reduce inflammation'
-    };
-    
-    const { hasCondition: showCovidNotes } = detectCovidStatus(userData);
-    
     return {
-      protein: { 
-        value: parseFloat(protein),
-        covidNote: showCovidNotes ? covidNotes.protein : null
-      },
-      carbs: { 
-        value: parseFloat(carbs),
-        covidNote: showCovidNotes ? covidNotes.carbs : null
-      },
-      fat: { 
-        value: parseFloat(fat),
-        covidNote: showCovidNotes ? covidNotes.fat : null
-      },
-      calories: {
-        value: totalCalories
-      }
+      protein: { value: parseFloat(protein) },
+      carbs:   { value: parseFloat(carbs)   },
+      fat:     { value: parseFloat(fat)     },
+      calories:{ value: totalCalories       }
     };
   }, []);
 
@@ -589,7 +525,7 @@ function MacronutrientChart({ userData, userIntake = {} }) {
         .attr("font-size", "16px")
         .attr("font-weight", "bold")
         .attr("fill", "#333")
-        .text(`Long COVID Macronutrient Analysis - ${formattedDate}`);
+        .text(`Macronutrient Analysis — ${formattedDate}`);
       
       data.forEach(d => {
         let y0 = 0;
@@ -639,10 +575,6 @@ function MacronutrientChart({ userData, userIntake = {} }) {
           const caloriesPerGram = d.nutrient === 'fat' ? 9 : 4;
           const calories = (parentData[d.nutrient] * caloriesPerGram).toFixed(0);
           
-          const covidNote = parentData.name === "Recommended" && 
-                          personalizedRDA[d.nutrient].covidNote ? 
-                          `<br><span style="color:#6366f1;font-style:italic">${personalizedRDA[d.nutrient].covidNote}</span>` : '';
-          
           tooltip
             .style("opacity", 1)
             .html(`
@@ -651,7 +583,6 @@ function MacronutrientChart({ userData, userIntake = {} }) {
                 <b>Amount:</b> ${amount}g
                 <br><b>Percentage:</b> ${percentage}%
                 <br><b>Calories:</b> ${calories} kcal
-                ${covidNote}
               </div>
             `)
             .style("left", (event.pageX + 10) + "px")
@@ -689,21 +620,6 @@ function MacronutrientChart({ userData, userIntake = {} }) {
           .style("font-size", "14px")
           .text(nutrient);
       });
-      
-      {
-        const { hasCondition, severity } = detectCovidStatus(userData);
-        if (hasCondition) {
-          const severityLabel = severity.charAt(0).toUpperCase() + severity.slice(1);
-          svg.append("text")
-            .attr("x", width / 2)
-            .attr("y", height + 40)
-            .attr("text-anchor", "middle")
-            .attr("font-size", "12px")
-            .attr("font-style", "italic")
-            .attr("fill", "#6366f1")
-            .text(`Note: RDA values adjusted for Long COVID recovery (${severityLabel} severity)`);
-        }
-      }
       
       const calculateCalories = (data) => {
         return (data.protein * 4 + data.carbs * 4 + data.fat * 9).toFixed(0);
@@ -823,15 +739,6 @@ function MicronutrientChart({ data, userData }) {
     }
   }, [userData]);
 
-  const getSeverityFactor = useCallback((severity) => {
-    switch (severity?.toLowerCase()) {
-      case 'mild': return 1.1;
-      case 'moderate': return 1.3;
-      case 'severe': return 1.5;
-      case 'very severe': return 1.8;
-      default: return 1.0;
-    }
-  }, []);
 
   const processNutrientData = useCallback((intakeData, rdaData) => {
     console.log('=== FIXED processNutrientData ===');
@@ -954,24 +861,6 @@ function MicronutrientChart({ data, userData }) {
         }
       }
 
-      const severity = userData?.covid_severity || userData?.longCovidSeverity;
-      const hasCovidCondition = severity && severity !== 'None' && severity !== null && severity !== undefined;
-
-      if (hasCovidCondition) {
-        const severityFactor = getSeverityFactor(severity);
-
-        if (['vitamin_c', 'vitamin_d', 'zinc', 'selenium'].includes(nutrient)) {
-          const covidMultiplier = Math.min(severityFactor * 1.5, 2.5);
-          adjustedValue *= covidMultiplier;
-        } else if (['vitamin_a', 'vitamin_e', 'vitamin_b6', 'vitamin_b12', 'folate', 'iron'].includes(nutrient)) {
-          const covidMultiplier = Math.min(severityFactor * 1.3, 2.0);
-          adjustedValue *= covidMultiplier;
-        } else if (['magnesium', 'copper', 'vitamin_b1', 'vitamin_b2', 'vitamin_b3'].includes(nutrient)) {
-          const covidMultiplier = Math.min(severityFactor * 1.1, 1.5);
-          adjustedValue *= covidMultiplier;
-        }
-      }
-
       if (isNaN(adjustedValue) || !isFinite(adjustedValue) || adjustedValue <= 0) {
         console.error(`Invalid final value for ${nutrient}: ${adjustedValue}, resetting to base`);
         adjustedValue = personalRDA[nutrient].value;
@@ -987,7 +876,7 @@ function MicronutrientChart({ data, userData }) {
     });
 
     return personalRDA;
-  }, [getSeverityFactor]);
+  }, []);
 
   const getNutrientStatus = (percentValue) => {
     if (percentValue >= 100) return { label: "Optimal", color: "#4CAF50" };
@@ -1877,29 +1766,15 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
         }}>
           Enhanced Metabolic Efficiency
         </h4>
-        <p style={{ 
-          marginBottom: '20px', 
-          lineHeight: '1.6',
-          fontSize: '16px',
-          color: '#555'
-        }}>
-          This enhanced chart uses advanced algorithms that take into account Long COVID severity, meal timing, 
-          macronutrient balance, and individual factors to provide more accurate efficiency calculations for 
-          energy management. The efficiency line follows proper chronological order.
+        <p style={{ marginBottom: '20px', lineHeight: '1.6', fontSize: '16px', color: '#555' }}>
+          This chart uses meal timing, macronutrient balance, and individual factors to calculate metabolic efficiency scores for energy management. The efficiency line follows proper chronological order.
         </p>
         <div style={{ marginTop: '20px' }}>
-          <strong style={{ fontSize: '18px', color: '#333' }}>Enhanced Features:</strong>
-          <ul style={{ 
-            marginTop: '15px', 
-            paddingLeft: '30px', 
-            lineHeight: '1.8',
-            fontSize: '15px',
-            color: '#555'
-          }}>
-            <li style={{ marginBottom: '8px' }}>Long COVID severity adjustments (metabolic efficiency factors)</li>
+          <strong style={{ fontSize: '18px', color: '#333' }}>Features:</strong>
+          <ul style={{ marginTop: '15px', paddingLeft: '30px', lineHeight: '1.8', fontSize: '15px', color: '#555' }}>
             <li style={{ marginBottom: '8px' }}>Circadian rhythm timing optimization</li>
             <li style={{ marginBottom: '8px' }}>Macronutrient balance scoring</li>
-            <li style={{ marginBottom: '8px' }}>Anti-inflammatory food benefits/cautions</li>
+            <li style={{ marginBottom: '8px' }}>Meal type weighting (breakfast vs. late-night snack)</li>
             <li style={{ marginBottom: '8px' }}>Chronologically ordered efficiency tracking</li>
           </ul>
         </div>
@@ -1908,51 +1783,162 @@ function EfficiencyChart({ data, userData, foodDatabase }) {
   );
 }
 
+// ── Condition key normaliser ────────────────────────────────────────────────
+const CONDITION_KEY_MAP = {
+  // comorbidConditions keys (exact IDs from PersonalSettings.js)
+  'mecfs': 'me_cfs', 'pots': 'pots', 'mcas': 'mcas', 'fibro': 'fibro', 'eds': 'eds',
+  // legacy / alternate spellings
+  'long covid': 'long_covid', 'long_covid': 'long_covid',
+  'me/cfs': 'me_cfs', 'me_cfs': 'me_cfs',
+};
+
+/**
+ * Resolves active conditions from the actual Firestore profile shape:
+ *   profile.severity            → Long COVID (main condition field in PersonalSettings)
+ *   profile.comorbidConditions  → { mecfs, pots, mcas, fibro, eds }
+ */
+const resolveConditions = (profile) => {
+  if (!profile) return [];
+  const found = new Set();
+
+  // 1. Long COVID — stored as profile.severity
+  const lcSeverity = profile.severity || profile.covid_severity || profile.longCovidSeverity;
+  if (lcSeverity && lcSeverity !== '' && lcSeverity.toLowerCase() !== 'none') {
+    found.add('long_covid');
+  }
+
+  // 2. Comorbid conditions object { mecfs: 'severe', pots: 'mild', … }
+  if (profile.comorbidConditions && typeof profile.comorbidConditions === 'object') {
+    Object.keys(profile.comorbidConditions).forEach(key => {
+      const mapped = CONDITION_KEY_MAP[key.toLowerCase()];
+      if (mapped) found.add(mapped);
+    });
+  }
+
+  // 3. Legacy array fields fallback
+  for (const f of ['medical_conditions', 'conditions', 'medicalConditions']) {
+    if (Array.isArray(profile[f])) {
+      profile[f].forEach(c => {
+        const mapped = CONDITION_KEY_MAP[c.toLowerCase().trim()];
+        if (mapped) found.add(mapped);
+      });
+    }
+  }
+
+  return [...found];
+};
+
+const CONDITION_NOTES = {
+  long_covid: {
+    label: 'Long COVID', icon: '🦠', color: '#6366f1', bg: '#f5f3ff', border: '#c4b5fd',
+    notes: [
+      { nutrient: 'Calories',           guidance: 'Your needs may run 5–15% above standard TDEE due to elevated immune activity. Prioritise nutrient-dense foods; under-eating worsens fatigue and recovery.' },
+      { nutrient: 'Protein',            guidance: 'Aim for 25–30% of calories (~1.2–1.6 g/kg body weight) to support tissue repair and immune function.' },
+      { nutrient: 'Vitamin C',          guidance: 'Consider 200–500 mg/day (vs. ~75–90 mg RDA) to counter oxidative stress and support immune response.' },
+      { nutrient: 'Vitamin D',          guidance: 'Aim for 2,000–4,000 IU/day (vs. 600–800 IU RDA) for immune modulation and fatigue reduction.' },
+      { nutrient: 'B12 & B-complex',    guidance: 'Prioritize the higher end of RDA — supports mitochondrial function, nerve health, and energy metabolism.' },
+      { nutrient: 'Zinc',               guidance: 'Consider 15–25 mg/day (vs. 8–11 mg RDA) to support immune function and taste/smell recovery.' },
+      { nutrient: 'Magnesium',          guidance: 'Aim for 400–500 mg/day — important for nerve function, muscle recovery, and energy metabolism.' },
+      { nutrient: 'Omega-3 (EPA+DHA)',  guidance: 'Target 2–4 g/day from fatty fish or supplements to reduce neuroinflammation and support brain health.' },
+    ],
+  },
+  me_cfs: {
+    label: 'ME/CFS', icon: '⚡', color: '#0891b2', bg: '#ecfeff', border: '#67e8f9',
+    notes: [
+      { nutrient: 'Calories',           guidance: 'Needs vary by symptom phase. Reduce portions during crashes; maintain adequate intake during stable periods — chronic under-eating accelerates muscle loss.' },
+      { nutrient: 'Meal size',          guidance: 'Prefer small, frequent meals (4–6/day) — large meals worsen post-exertional fatigue.' },
+      { nutrient: 'B-complex',          guidance: 'Prioritize B1, B2, B3, B6, B12, and folate at the higher end of RDA — directly support mitochondrial energy production.' },
+      { nutrient: 'CoQ10',              guidance: '100–300 mg/day may support cellular energy; commonly depleted in ME/CFS.' },
+      { nutrient: 'Magnesium',          guidance: 'Magnesium malate or glycinate (300–400 mg/day) supports muscle function and may reduce pain and fatigue.' },
+      { nutrient: 'Carbohydrates',      guidance: 'Avoid large carbohydrate loads; focus on low-GI complex carbs to prevent post-meal energy crashes.' },
+    ],
+  },
+  mcas: {
+    label: 'MCAS', icon: '🧬', color: '#b45309', bg: '#fffbeb', border: '#fcd34d',
+    notes: [
+      { nutrient: 'Calories',           guidance: 'Standard TDEE applies, but low-histamine restrictions make hitting calorie targets harder. Track intake carefully to avoid under-eating.' },
+      { nutrient: 'Histamine management', guidance: 'Avoid aged cheeses, fermented foods, alcohol, canned goods, tomatoes, spinach, and leftovers. Cook fresh and eat immediately.' },
+      { nutrient: 'Vitamin C',          guidance: '500–2,000 mg/day acts as a natural antihistamine and DAO enzyme cofactor — take with meals.' },
+      { nutrient: 'Quercetin',          guidance: '500–1,000 mg/day is a natural mast cell stabilizer; found in apples, onions, and as a supplement.' },
+      { nutrient: 'DAO enzyme',         guidance: 'DAO supplements taken before meals may reduce histamine absorption from food.' },
+    ],
+  },
+  pots: {
+    label: 'POTS', icon: '💧', color: '#0369a1', bg: '#f0f9ff', border: '#7dd3fc',
+    notes: [
+      { nutrient: 'Calories',           guidance: 'Standard TDEE applies. Distribute across 5–6 small meals — large meals divert blood to the gut and trigger orthostatic symptoms.' },
+      { nutrient: 'Sodium',             guidance: 'Target 3,000–5,000 mg/day (vs. 2,300 mg standard) to increase blood volume — use under medical supervision.' },
+      { nutrient: 'Fluids',             guidance: 'Aim for 2–3 L/day of water and electrolyte-containing beverages.' },
+      { nutrient: 'Potassium',          guidance: 'Maintain ~3,500–4,700 mg/day alongside high sodium to support heart rhythm and blood pressure.' },
+      { nutrient: 'Caffeine',           guidance: 'Limit or avoid — acts as a diuretic and may worsen heart rate instability.' },
+    ],
+  },
+  fibro: {
+    label: 'Fibromyalgia', icon: '💢', color: '#be185d', bg: '#fdf2f8', border: '#f9a8d4',
+    notes: [
+      { nutrient: 'Calories',           guidance: 'Standard TDEE applies. Pain and fatigue may suppress appetite — ensure adequate intake to support muscle function and avoid worsening energy levels.' },
+      { nutrient: 'Magnesium',          guidance: 'Aim for 300–500 mg/day — deficiency is common in fibromyalgia and linked to increased pain sensitivity and poor sleep.' },
+      { nutrient: 'Vitamin D',          guidance: 'Low vitamin D is strongly associated with fibromyalgia pain. Aim for 1,000–2,000 IU/day; test serum levels and supplement accordingly.' },
+      { nutrient: 'Anti-inflammatory foods', guidance: 'Emphasize omega-3 rich fish, leafy greens, and berries; reduce refined sugars and processed foods that amplify pain signalling.' },
+      { nutrient: 'Protein',            guidance: 'Adequate protein (1.0–1.2 g/kg) supports muscle repair and helps prevent weakness worsened by inactivity and pain.' },
+      { nutrient: 'Tryptophan-rich foods', guidance: 'Turkey, eggs, nuts, and seeds support serotonin production, which may help with pain modulation and sleep quality.' },
+    ],
+  },
+  eds: {
+    label: 'EDS', icon: '🦴', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe',
+    notes: [
+      { nutrient: 'Calories',           guidance: 'Standard TDEE applies. GI dysmotility (common in EDS) may impair absorption — smaller, more frequent meals can help if absorption is a concern.' },
+      { nutrient: 'Vitamin C',          guidance: 'Aim for 500–1,000 mg/day — essential for collagen synthesis. EDS involves defective connective tissue and higher vitamin C demand.' },
+      { nutrient: 'Protein',            guidance: 'Target 1.2–1.5 g/kg — amino acids (especially glycine and proline) are collagen building blocks.' },
+      { nutrient: 'Magnesium',          guidance: '300–400 mg/day supports muscle tone, reduces cramping, and may help with autonomic dysregulation common in EDS.' },
+      { nutrient: 'Copper & Zinc',      guidance: 'Both are cofactors for collagen cross-linking enzymes. Aim for RDA levels; excessive zinc depletes copper — balance matters.' },
+      { nutrient: 'Sodium & fluids',    guidance: 'If POTS co-occurs (common in EDS), follow POTS sodium guidance (3,000–5,000 mg/day) under medical supervision.' },
+    ],
+  },
+};
+
+const ConditionNutritionNotes = ({ profile }) => {
+  const matched = resolveConditions(profile);
+  if (matched.length === 0) return null;
+
+  return (
+    <div className="condition-nutrition-notes">
+      <h4 className="cnn-heading">📋 Nutrition Guidance for Your Conditions</h4>
+      <p className="cnn-intro">
+        The RDA values and calorie targets in the charts reflect standard recommendations. Based on your conditions, your calorie needs and nutrient requirements may differ from these baselines. The guidance below explains how and why — consult your healthcare provider before significantly changing your intake.
+      </p>
+      {matched.map(key => {
+        const info = CONDITION_NOTES[key];
+        if (!info) return null;
+        return (
+          <div key={key} className="cnn-condition-block" style={{ borderLeftColor: info.border, background: info.bg }}>
+            <div className="cnn-condition-header" style={{ color: info.color }}>
+              <span className="cnn-icon">{info.icon}</span>
+              <strong>{info.label}</strong>
+            </div>
+            <ul className="cnn-notes-list">
+              {info.notes.map(({ nutrient, guidance }) => (
+                <li key={nutrient} className="cnn-note-item">
+                  <span className="cnn-nutrient" style={{ color: info.color }}>{nutrient}:</span>{' '}
+                  <span className="cnn-guidance">{guidance}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 function AnalysisTab({ foodLog, userProfile }) {
-  // Shared profile state — toggle here updates ALL charts
   const [activeProfile, setActiveProfile] = useState(userProfile);
 
-  // Sync if parent profile changes
+  // Sync activeProfile when parent userProfile loads or changes
+  // (profile starts null while Firestore fetches, so we must update on load)
   useEffect(() => {
-    if (userProfile) {
-      setActiveProfile(prev => ({
-        ...userProfile,
-        covid_severity: prev?.covid_severity !== undefined ? prev.covid_severity : userProfile.covid_severity,
-        longCovidSeverity: prev?.longCovidSeverity !== undefined ? prev.longCovidSeverity : userProfile.longCovidSeverity,
-        hasLongCovid: prev?.hasLongCovid !== undefined ? prev.hasLongCovid : userProfile.hasLongCovid
-      }));
-    }
+    if (userProfile) setActiveProfile(userProfile);
   }, [userProfile]);
-
-  // COVID severity toggle — cycles through None → mild → moderate → severe → very severe → None
-  const toggleCovidSeverity = () => {
-    const severities = [null, 'mild', 'moderate', 'severe', 'very severe'];
-    const currentSeverity = activeProfile?.covid_severity?.toLowerCase() || activeProfile?.longCovidSeverity?.toLowerCase() || null;
-    const currentIndex = severities.indexOf(currentSeverity);
-    const nextIndex = (currentIndex + 1) % severities.length;
-    const newSeverity = severities[nextIndex];
-
-    const updated = {
-      ...activeProfile,
-      covid_severity: newSeverity,
-      longCovidSeverity: newSeverity,
-      hasLongCovid: newSeverity !== null
-    };
-
-    if (newSeverity === null) {
-      delete updated.covid_severity;
-      delete updated.longCovidSeverity;
-      updated.hasLongCovid = false;
-    }
-
-    setActiveProfile(updated);
-  };
-
-  const getCurrentCovidSeverity = () => {
-    const severity = activeProfile?.covid_severity || activeProfile?.longCovidSeverity;
-    if (!severity || severity === 'None') return 'None';
-    return severity.charAt(0).toUpperCase() + severity.slice(1);
-  };
 
   if (!foodLog || !Array.isArray(foodLog)) {
     return (
@@ -2012,40 +1998,18 @@ function AnalysisTab({ foodLog, userProfile }) {
           </div>
           <div className="profile-item">
             <p className="profile-label">Medical Conditions</p>
-            <p className="profile-value">{activeProfile?.medical_conditions && activeProfile.medical_conditions.length > 0 ?
-              activeProfile.medical_conditions.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ') : 'None'}</p>
-          </div>
-          <div className="profile-item">
-            <p className="profile-label">COVID Status</p>
-            <button
-              onClick={toggleCovidSeverity}
-              className="covid-toggle-button"
-              style={{
-                padding: '8px 12px',
-                backgroundColor: '#e3f2fd',
-                border: '2px solid #2196f3',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#1976d2',
-                transition: 'all 0.2s ease',
-                minWidth: '120px'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#bbdefb';
-                e.target.style.transform = 'scale(1.02)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = '#e3f2fd';
-                e.target.style.transform = 'scale(1)';
-              }}
-            >
-              {getCurrentCovidSeverity()} (Click to change)
-            </button>
+            <p className="profile-value">
+              {resolveConditions(activeProfile).length > 0
+                ? resolveConditions(activeProfile)
+                    .map(k => CONDITION_NOTES[k]?.label || k)
+                    .join(', ')
+                : 'None specified'}
+            </p>
           </div>
         </div>
       </div>
+
+      <ConditionNutritionNotes profile={activeProfile} />
 
       <div className="charts-container">
         

@@ -6,21 +6,9 @@ import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, signOu
 import "../Common.css";
 import "./PersonalSettings.css";
 
-import { 
-  ArrowLeft, 
-  Save, 
-  User, 
-  Mail, 
-  Lock, 
-  Calendar, 
-  Scale, 
-  Ruler, 
-  Check,
-  Eye,
-  EyeOff,
-  LogOut,
-  Trash2,
-  AlertTriangle
+import {
+  ArrowLeft, Save, User, Mail, Lock, Calendar, Scale, Ruler,
+  Check, Eye, EyeOff, LogOut, Trash2, AlertTriangle,
 } from 'lucide-react';
 
 const symptomGroups = [
@@ -31,17 +19,64 @@ const symptomGroups = [
   { label: 'Other',                         symptoms: ['Sleep disturbances', 'Digestive issues'] },
 ];
 
+// ── Comorbid conditions ─────────────────────────────────────────────────────
+const COMORBID_CONDITIONS = [
+  {
+    id: 'mecfs',
+    label: 'ME/CFS',
+    fullName: 'Myalgic Encephalomyelitis / Chronic Fatigue Syndrome',
+    icon: '🧠',
+    note: 'Characterised by post-exertional malaise, unrefreshing sleep, and cognitive impairment.',
+  },
+  {
+    id: 'pots',
+    label: 'POTS',
+    fullName: 'Postural Orthostatic Tachycardia Syndrome',
+    icon: '💓',
+    note: 'Abnormal heart-rate increase on standing; often causes dizziness and palpitations.',
+  },
+  {
+    id: 'mcas',
+    label: 'MCAS',
+    fullName: 'Mast Cell Activation Syndrome',
+    icon: '🌡️',
+    note: 'Mast cells release chemicals inappropriately, triggering allergy-like reactions.',
+  },
+  {
+    id: 'fibro',
+    label: 'Fibromyalgia',
+    fullName: 'Fibromyalgia',
+    icon: '🦴',
+    note: 'Widespread musculoskeletal pain, fatigue, and often cognitive difficulties.',
+  },
+  {
+    id: 'eds',
+    label: 'EDS',
+    fullName: 'Ehlers-Danlos Syndrome',
+    icon: '🔗',
+    note: 'Connective tissue disorder; hypermobility, joint instability, and chronic pain.',
+  },
+];
+
+const CONDITION_LEVELS = [
+  { value: 'mild',        label: 'Mild',        icon: '🟡' },
+  { value: 'moderate',    label: 'Moderate',    icon: '🟠' },
+  { value: 'severe',      label: 'Severe',      icon: '🔴' },
+  { value: 'very-severe', label: 'Very Severe', icon: '🟣' },
+];
+// ───────────────────────────────────────────────────────────────────────────
+
 // Conversion utilities
 const convertWeight = {
   lbsToKg: (lbs) => lbs * 0.453592,
-  kgToLbs: (kg) => kg * 2.20462,
+  kgToLbs: (kg)  => kg  * 2.20462,
 };
 
 const convertHeight = {
   feetInchesToCm: (feet, inches) => (feet * 12 + inches) * 2.54,
   cmToFeetInches: (cm) => {
     const totalInches = cm / 2.54;
-    const feet = Math.floor(totalInches / 12);
+    const feet   = Math.floor(totalInches / 12);
     const inches = Math.round(totalInches % 12);
     return { feet, inches };
   },
@@ -49,19 +84,20 @@ const convertHeight = {
 
 const PersonalSettings = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [loading,  setLoading]  = useState(true);
+  const [saving,   setSaving]   = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [userData, setUserData] = useState(null);
-  const [showPasswordSection, setShowPasswordSection] = useState(false);
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
-  const [showDeletePasswordConfirmation, setShowDeletePasswordConfirmation] = useState(false);
-  const [showDeletePassword, setShowDeletePassword] = useState(false);
-  const [deletePassword, setDeletePassword] = useState('');
-  
+
+  const [showPasswordSection,           setShowPasswordSection]           = useState(false);
+  const [showCurrentPassword,           setShowCurrentPassword]           = useState(false);
+  const [showNewPassword,               setShowNewPassword]               = useState(false);
+  const [showConfirmPassword,           setShowConfirmPassword]           = useState(false);
+  const [showDeleteConfirmation,        setShowDeleteConfirmation]        = useState(false);
+  const [showDeletePasswordConfirmation,setShowDeletePasswordConfirmation]= useState(false);
+  const [showDeletePassword,            setShowDeletePassword]            = useState(false);
+  const [deletePassword,                setDeletePassword]                = useState('');
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -76,16 +112,17 @@ const PersonalSettings = () => {
     covidDuration: '',
     severity: '',
     symptoms: [],
-    medicalConditions: ''
+    comorbidConditions: {},   // { mecfs: 'moderate', pots: 'mild', … }
+    medicalConditions: '',
   });
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
-    confirmPassword: ''
+    confirmPassword: '',
   });
 
-  const [errors, setErrors] = useState({});
+  const [errors,         setErrors]         = useState({});
   const [successMessage, setSuccessMessage] = useState('');
 
   // Floating label functionality
@@ -94,63 +131,40 @@ const PersonalSettings = () => {
 
     const handleFloatingLabels = (input) => {
       const formGroup = input.closest('.form-group');
-      const label = formGroup?.querySelector('.form-label');
-      
+      const label     = formGroup?.querySelector('.form-label');
+
       if (!label || !formGroup) {
-        return {
-          handleFocus: () => {},
-          handleBlur: () => {},
-          handleInput: () => {},
-          updateLabelState: () => {}
-        };
+        return { handleFocus: () => {}, handleBlur: () => {}, handleInput: () => {}, updateLabelState: () => {} };
       }
 
       const updateLabelState = () => {
-        const hasValue = input.value && input.value.length > 0;
+        const hasValue  = input.value && input.value.length > 0;
         const isFocused = document.activeElement === input;
-        
-        if (hasValue || isFocused) {
-          label.classList.add('floating');
-          formGroup.classList.add('has-content');
-        } else {
-          label.classList.remove('floating');
-          formGroup.classList.remove('has-content');
-        }
+        if (hasValue || isFocused) { label.classList.add('floating');    formGroup.classList.add('has-content'); }
+        else                       { label.classList.remove('floating'); formGroup.classList.remove('has-content'); }
       };
 
       updateLabelState();
 
       const handleFocus = () => {
         try {
-          if (input.closest('.form-group')) {
-            input.closest('.form-group').style.transform = 'scale(1.02)';
-          }
+          if (input.closest('.form-group')) input.closest('.form-group').style.transform = 'scale(1.02)';
           label.classList.add('floating');
           formGroup.classList.add('focused');
           updateLabelState();
-        } catch (error) {
-          console.warn('Error in handleFocus:', error);
-        }
+        } catch (error) { console.warn('Error in handleFocus:', error); }
       };
-      
+
       const handleBlur = () => {
         try {
-          if (input.closest('.form-group')) {
-            input.closest('.form-group').style.transform = 'scale(1)';
-          }
+          if (input.closest('.form-group')) input.closest('.form-group').style.transform = 'scale(1)';
           formGroup.classList.remove('focused');
           updateLabelState();
-        } catch (error) {
-          console.warn('Error in handleBlur:', error);
-        }
+        } catch (error) { console.warn('Error in handleBlur:', error); }
       };
 
       const handleInput = () => {
-        try {
-          updateLabelState();
-        } catch (error) {
-          console.warn('Error in handleInput:', error);
-        }
+        try { updateLabelState(); } catch (error) { console.warn('Error in handleInput:', error); }
       };
 
       return { handleFocus, handleBlur, handleInput, updateLabelState };
@@ -160,17 +174,13 @@ const PersonalSettings = () => {
     inputs.forEach(input => {
       try {
         const handlers = handleFloatingLabels(input);
-        
         if (handlers && handlers.handleFocus) {
           input.addEventListener('focus', handlers.handleFocus);
-          input.addEventListener('blur', handlers.handleBlur);
+          input.addEventListener('blur',  handlers.handleBlur);
           input.addEventListener('input', handlers.handleInput);
-          
           inputHandlers.push({ input, handlers });
         }
-      } catch (error) {
-        console.warn('Error setting up input handlers:', error);
-      }
+      } catch (error) { console.warn('Error setting up input handlers:', error); }
     });
 
     return () => {
@@ -178,12 +188,10 @@ const PersonalSettings = () => {
         try {
           if (input && handlers) {
             input.removeEventListener('focus', handlers.handleFocus);
-            input.removeEventListener('blur', handlers.handleBlur);
+            input.removeEventListener('blur',  handlers.handleBlur);
             input.removeEventListener('input', handlers.handleInput);
           }
-        } catch (error) {
-          console.warn('Error cleaning up input handlers:', error);
-        }
+        } catch (error) { console.warn('Error cleaning up input handlers:', error); }
       });
     };
   }, []);
@@ -193,82 +201,67 @@ const PersonalSettings = () => {
     inputs.forEach(input => {
       try {
         const formGroup = input.closest('.form-group');
-        const label = formGroup?.querySelector('.form-label');
-        
+        const label     = formGroup?.querySelector('.form-label');
         if (label && formGroup) {
           const hasValue = input.value && input.value.length > 0;
-          
-          if (hasValue) {
-            label.classList.add('floating');
-            formGroup.classList.add('has-content');
-          } else {
-            label.classList.remove('floating');
-            formGroup.classList.remove('has-content');
-          }
+          if (hasValue) { label.classList.add('floating');    formGroup.classList.add('has-content'); }
+          else          { label.classList.remove('floating'); formGroup.classList.remove('has-content'); }
         }
-      } catch (error) {
-        console.warn('Error updating floating labels:', error);
-      }
+      } catch (error) { console.warn('Error updating floating labels:', error); }
     });
   }, [formData]);
 
-  // Memoized loadUserData function to fix useEffect dependency warning
+  // Load user data
   const loadUserData = useCallback(async () => {
     try {
       const storedUserData = localStorage.getItem('userData');
-      if (!storedUserData) {
-        navigate('/login');
-        return;
-      }
+      if (!storedUserData) { navigate('/login'); return; }
 
       const parsedUserData = JSON.parse(storedUserData);
-      
+
       if (parsedUserData.id) {
-        const userDocRef = doc(db, "users", parsedUserData.id);
-        const userDocSnap = await getDoc(userDocRef);
-        
+        const userDocRef  = doc(db, 'users', parsedUserData.id);
+        const userDocSnap = await getDoc(userDocRef, { source: 'server' });
+
         if (userDocSnap.exists()) {
           const data = userDocSnap.data();
           setUserData({ id: parsedUserData.id, ...data });
-          
-          // Get user's preferred unit system (default to metric if not set)
+
           const userUnitSystem = data.unitSystem || 'metric';
-          
-          // Convert stored metric values to user's preferred system for display
-          let displayWeight = data.weight || '';
-          let displayHeight = data.height || '';
-          let displayHeightFeet = '';
-          let displayHeightInches = '';
-          
+
+          let displayWeight      = data.weight  || '';
+          let displayHeight      = data.height  || '';
+          let displayHeightFeet  = '';
+          let displayHeightInches= '';
+
           if (userUnitSystem === 'imperial') {
-            // Convert weight from kg to lbs
             if (data.weight) {
               displayWeight = Math.round(convertWeight.kgToLbs(data.weight) * 10) / 10;
             }
-            // Convert height from cm to feet/inches
             if (data.height) {
               const { feet, inches } = convertHeight.cmToFeetInches(data.height);
-              displayHeightFeet = feet;
+              displayHeightFeet   = feet;
               displayHeightInches = inches;
-              displayHeight = '';
+              displayHeight       = '';
             }
           }
-          
+
           setFormData({
-            name: data.name || '',
-            email: data.email || '',
-            age: data.age || '',
-            gender: data.gender || '',
-            unitSystem: userUnitSystem,
-            weight: displayWeight,
-            height: displayHeight,
-            heightFeet: displayHeightFeet,
-            heightInches: displayHeightInches,
-            covidDate: data.covidDate || '',
-            covidDuration: data.covidDuration || '',
-            severity: data.severity || '',
-            symptoms: data.symptoms || [],
-            medicalConditions: data.medicalConditions || ''
+            name:               data.name              || '',
+            email:              data.email             || '',
+            age:                data.age               || '',
+            gender:             data.gender            || '',
+            unitSystem:         userUnitSystem,
+            weight:             displayWeight,
+            height:             displayHeight,
+            heightFeet:         displayHeightFeet,
+            heightInches:       displayHeightInches,
+            covidDate:          data.covidDate         || '',
+            covidDuration:      data.covidDuration     || '',
+            severity:           data.severity          || '',
+            symptoms:           data.symptoms          || [],
+            comorbidConditions: data.comorbidConditions || {},  // ← load stored conditions
+            medicalConditions:  data.medicalConditions  || '',
           });
         } else {
           console.error('User document not found');
@@ -283,47 +276,25 @@ const PersonalSettings = () => {
     }
   }, [navigate]);
 
-  useEffect(() => {
-    loadUserData();
-  }, [loadUserData]);
+  useEffect(() => { loadUserData(); }, [loadUserData]);
 
   const handleLogout = async () => {
-    console.log('Logout clicked - starting complete logout process');
-    
     try {
-      if (auth.currentUser) {
-        console.log('Signing out Firebase user:', auth.currentUser.email);
-        await signOut(auth);
-        console.log('Firebase signOut successful');
-      } else {
-        console.log('No Firebase user to sign out');
-      }
-      
-      console.log('Clearing localStorage userData');
+      if (auth.currentUser) await signOut(auth);
       localStorage.removeItem('userData');
-      
       sessionStorage.clear();
-      console.log('Cleared sessionStorage');
-      
       setUserData(null);
       setLoading(false);
-      
-      console.log('Complete logout finished, navigating to login...');
-      
       navigate('/login', { replace: true });
-      
     } catch (error) {
       console.error('Error during logout:', error);
-      
       localStorage.removeItem('userData');
       sessionStorage.clear();
       setUserData(null);
-      
       navigate('/login', { replace: true });
     }
   };
 
-  // Enhanced account deletion handler with complete data removal and verification
   const handleDeleteAccount = async () => {
     if (!deletePassword.trim()) {
       setErrors({ deletePassword: 'Password is required for account deletion' });
@@ -335,53 +306,30 @@ const PersonalSettings = () => {
 
     try {
       const user = auth.currentUser;
-      
-      if (!user) {
-        throw new Error('No authenticated user found');
-      }
+      if (!user) throw new Error('No authenticated user found');
 
-      // Re-authenticate user before deletion
       const credential = EmailAuthProvider.credential(user.email, deletePassword);
       await reauthenticateWithCredential(user, credential);
 
-      // Delete all user-related data from Firestore
       const userId = userData.id;
-      
-      // Delete user document
       await deleteDoc(doc(db, 'users', userId));
 
-      // Delete all user's food logs
-      const foodLogsQuery = query(
-        collection(db, 'foodLogs'),
-        where('userId', '==', userId)
-      );
+      const foodLogsQuery    = query(collection(db, 'foodLogs'), where('userId', '==', userId));
       const foodLogsSnapshot = await getDocs(foodLogsQuery);
-      const batch = writeBatch(db);
-      foodLogsSnapshot.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
+      const batch            = writeBatch(db);
+      foodLogsSnapshot.docs.forEach((d) => batch.delete(d.ref));
       await batch.commit();
 
-      // Delete Firebase Auth account
       await deleteUser(user);
-
-      // Clear local storage
       localStorage.removeItem('userData');
       sessionStorage.clear();
-
-      // Navigate to login
       navigate('/login', { replace: true });
 
     } catch (error) {
       console.error('Error deleting account:', error);
-      
-      if (error.code === 'auth/wrong-password') {
-        setErrors({ deletePassword: 'Incorrect password' });
-      } else if (error.code === 'auth/too-many-requests') {
-        setErrors({ deletePassword: 'Too many failed attempts. Please try again later.' });
-      } else {
-        setErrors({ deletePassword: 'Failed to delete account. Please try again.' });
-      }
+      if      (error.code === 'auth/wrong-password')    setErrors({ deletePassword: 'Incorrect password' });
+      else if (error.code === 'auth/too-many-requests') setErrors({ deletePassword: 'Too many failed attempts. Please try again later.' });
+      else                                              setErrors({ deletePassword: 'Failed to delete account. Please try again.' });
     } finally {
       setDeleting(false);
     }
@@ -389,157 +337,135 @@ const PersonalSettings = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
+
     if (name === 'symptoms') {
       setFormData(prev => ({
         ...prev,
-        symptoms: checked 
-          ? [...prev.symptoms, value]
-          : prev.symptoms.filter(s => s !== value)
+        symptoms: checked ? [...prev.symptoms, value] : prev.symptoms.filter(s => s !== value),
       }));
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      }));
+      setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     }
-    
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-    
+
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
     setSuccessMessage('');
   };
 
   const handlePasswordChange = (e) => {
     const { name, value } = e.target;
-    setPasswordData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
+    setPasswordData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
-  // Handle unit system change with conversion
+  // ── Comorbid condition handlers ────────────────────────────────────────
+  const handleConditionToggle = (conditionId) => {
+    setFormData(prev => {
+      const current = prev.comorbidConditions ?? {};
+      const updated = { ...current };
+      if (conditionId in updated) {
+        delete updated[conditionId];   // deselect — remove key entirely
+      } else {
+        updated[conditionId] = 'moderate';  // select with default severity
+      }
+      return { ...prev, comorbidConditions: updated };
+    });
+    setSuccessMessage('');
+  };
+
+  const handleConditionLevel = (conditionId, level) => {
+    setFormData(prev => ({
+      ...prev,
+      comorbidConditions: { ...prev.comorbidConditions, [conditionId]: level },
+    }));
+    setSuccessMessage('');
+  };
+  // ──────────────────────────────────────────────────────────────────────
+
   const handleUnitSystemChange = (e) => {
     const newSystem = e.target.value;
     const oldSystem = formData.unitSystem;
-    
     let updatedData = { unitSystem: newSystem };
-    
-    // Convert existing values
+
     if (formData.weight) {
-      if (oldSystem === 'metric' && newSystem === 'imperial') {
-        // Convert kg to lbs
-        updatedData.weight = Math.round(convertWeight.kgToLbs(parseFloat(formData.weight)) * 10) / 10;
-      } else if (oldSystem === 'imperial' && newSystem === 'metric') {
-        // Convert lbs to kg
-        updatedData.weight = Math.round(convertWeight.lbsToKg(parseFloat(formData.weight)) * 10) / 10;
-      }
+      if      (oldSystem === 'metric'   && newSystem === 'imperial') updatedData.weight = Math.round(convertWeight.kgToLbs(parseFloat(formData.weight)) * 10) / 10;
+      else if (oldSystem === 'imperial' && newSystem === 'metric')   updatedData.weight = Math.round(convertWeight.lbsToKg(parseFloat(formData.weight)) * 10) / 10;
     }
-    
+
     if (newSystem === 'imperial' && formData.height) {
-      // Converting from metric to imperial
       const { feet, inches } = convertHeight.cmToFeetInches(parseFloat(formData.height));
-      updatedData.heightFeet = feet;
+      updatedData.heightFeet   = feet;
       updatedData.heightInches = inches;
-      updatedData.height = '';
+      updatedData.height       = '';
     } else if (newSystem === 'metric' && (formData.heightFeet || formData.heightInches)) {
-      // Converting from imperial to metric
-      const feet = parseFloat(formData.heightFeet) || 0;
-      const inches = parseFloat(formData.heightInches) || 0;
-      updatedData.height = Math.round(convertHeight.feetInchesToCm(feet, inches));
-      updatedData.heightFeet = '';
+      updatedData.height       = Math.round(convertHeight.feetInchesToCm(parseFloat(formData.heightFeet) || 0, parseFloat(formData.heightInches) || 0));
+      updatedData.heightFeet   = '';
       updatedData.heightInches = '';
     }
-    
-    setFormData(prev => ({
-      ...prev,
-      ...updatedData
-    }));
-    
+
+    setFormData(prev => ({ ...prev, ...updatedData }));
     setSuccessMessage('');
   };
 
   const handleSaveChanges = async () => {
     const newErrors = {};
-    
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
-    }
-    
-    if (!formData.age) {
-      newErrors.age = 'Age is required';
-    } else if (formData.age < 13) {
-      newErrors.age = 'Age must be at least 13';
-    }
-    
-    if (!formData.gender) {
-      newErrors.gender = 'Gender is required';
-    }
-    
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-    
+    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (!formData.age)         newErrors.age  = 'Age is required';
+    else if (formData.age < 13) newErrors.age = 'Age must be at least 13';
+    if (!formData.gender)      newErrors.gender = 'Gender is required';
+
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+
     setSaving(true);
     setErrors({});
-    
+
     try {
-      // Convert to metric for storage regardless of display unit
       let weightInKg = formData.weight ? parseFloat(formData.weight) : null;
       let heightInCm = formData.height ? parseFloat(formData.height) : null;
-      
+
       if (formData.unitSystem === 'imperial') {
-        if (weightInKg) {
-          weightInKg = convertWeight.lbsToKg(weightInKg);
-        }
+        if (weightInKg) weightInKg = convertWeight.lbsToKg(weightInKg);
         if (formData.heightFeet || formData.heightInches) {
-          const feet = parseFloat(formData.heightFeet) || 0;
-          const inches = parseFloat(formData.heightInches) || 0;
-          heightInCm = convertHeight.feetInchesToCm(feet, inches);
+          heightInCm = convertHeight.feetInchesToCm(parseFloat(formData.heightFeet) || 0, parseFloat(formData.heightInches) || 0);
         }
       }
-      
+
       const updatedData = {
-        name: formData.name,
-        age: parseInt(formData.age),
-        gender: formData.gender,
-        unitSystem: formData.unitSystem,
-        weight: weightInKg ? Math.round(weightInKg * 10) / 10 : null,
-        height: heightInCm ? Math.round(heightInCm) : null,
-        covidDate: formData.covidDate || null,
-        covidDuration: formData.covidDuration || null,
-        severity: formData.severity || null,
-        symptoms: formData.symptoms,
-        medicalConditions: formData.medicalConditions || null,
-        updatedAt: new Date().toISOString()
+        name:               formData.name,
+        age:                parseInt(formData.age),
+        gender:             formData.gender,
+        unitSystem:         formData.unitSystem,
+        weight:             weightInKg ? Math.round(weightInKg * 10) / 10 : null,
+        height:             heightInCm ? Math.round(heightInCm)           : null,
+        covidDate:          formData.covidDate          || null,
+        covidDuration:      formData.covidDuration      || null,
+        severity:           formData.severity           || null,
+        symptoms:           formData.symptoms,
+        comorbidConditions: formData.comorbidConditions,   // ← persist
+        medicalConditions:  formData.medicalConditions  || null,
+        updatedAt:          new Date().toISOString(),
       };
-      
+
       await updateDoc(doc(db, 'users', userData.id), updatedData);
-      
-      // Update local storage
-      const updatedUserData = {
-        id: userData.id,
-        email: userData.email,
-        ...updatedData
-      };
+
+      // Re-read from server (bypasses cache) to confirm what was actually saved
+      const confirmedSnap = await getDoc(doc(db, 'users', userData.id), { source: 'server' });
+      const confirmedData = confirmedSnap.exists() ? confirmedSnap.data() : updatedData;
+
+      const updatedUserData = { id: userData.id, email: userData.email, ...confirmedData };
       localStorage.setItem('userData', JSON.stringify(updatedUserData));
       setUserData(updatedUserData);
-      
+
+      // Sync formData to exactly what Firestore has (so UI is always in sync)
+      setFormData(prev => ({
+        ...prev,
+        comorbidConditions: confirmedData.comorbidConditions ?? {},
+        severity:           confirmedData.severity           ?? '',
+        symptoms:           confirmedData.symptoms           ?? [],
+      }));
+
       setSuccessMessage('Profile updated successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
-      
+
     } catch (error) {
       console.error('Error updating profile:', error);
       setErrors({ submit: 'Failed to update profile. Please try again.' });
@@ -550,56 +476,31 @@ const PersonalSettings = () => {
 
   const handleChangePassword = async () => {
     const newErrors = {};
-    
-    if (!passwordData.currentPassword) {
-      newErrors.currentPassword = 'Current password is required';
-    }
-    
-    if (!passwordData.newPassword) {
-      newErrors.newPassword = 'New password is required';
-    } else if (passwordData.newPassword.length < 6) {
-      newErrors.newPassword = 'Password must be at least 6 characters';
-    }
-    
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-    
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-    
+    if (!passwordData.currentPassword)                             newErrors.currentPassword = 'Current password is required';
+    if (!passwordData.newPassword)                                 newErrors.newPassword     = 'New password is required';
+    else if (passwordData.newPassword.length < 6)                  newErrors.newPassword     = 'Password must be at least 6 characters';
+    if (passwordData.newPassword !== passwordData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
+
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+
     setSaving(true);
     setErrors({});
-    
+
     try {
-      const user = auth.currentUser;
-      const credential = EmailAuthProvider.credential(
-        user.email,
-        passwordData.currentPassword
-      );
-      
+      const user       = auth.currentUser;
+      const credential = EmailAuthProvider.credential(user.email, passwordData.currentPassword);
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, passwordData.newPassword);
-      
-      setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
+
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setShowPasswordSection(false);
       setSuccessMessage('Password changed successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
-      
+
     } catch (error) {
       console.error('Error changing password:', error);
-      
-      if (error.code === 'auth/wrong-password') {
-        setErrors({ currentPassword: 'Current password is incorrect' });
-      } else {
-        setErrors({ submit: 'Failed to change password. Please try again.' });
-      }
+      if (error.code === 'auth/wrong-password') setErrors({ currentPassword: 'Current password is incorrect' });
+      else setErrors({ submit: 'Failed to change password. Please try again.' });
     } finally {
       setSaving(false);
     }
@@ -635,7 +536,7 @@ const PersonalSettings = () => {
           </div>
         )}
 
-        {/* Profile Information */}
+        {/* ── Profile Information ── */}
         <div className="settings-card">
           <div className="card-header">
             <h2 className="card-title">Profile Information</h2>
@@ -645,54 +546,29 @@ const PersonalSettings = () => {
           <div className="form-sections">
             <div className="form-group">
               <User className="form-label-icon" />
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                className={`form-input ${errors.name ? 'error' : ''}`}
-                placeholder="Your full name"
-              />
+              <input type="text" name="name" value={formData.name} onChange={handleInputChange}
+                className={`form-input ${errors.name ? 'error' : ''}`} placeholder="Your full name" />
               <label className="form-label">Full Name *</label>
               {errors.name && <p className="error-message">{errors.name}</p>}
             </div>
 
             <div className="form-group">
               <Mail className="form-label-icon" />
-              <input
-                type="email"
-                value={formData.email}
-                className="form-input"
-                placeholder="your@email.com"
-                disabled
-              />
+              <input type="email" value={formData.email} className="form-input" placeholder="your@email.com" disabled />
               <label className="form-label">Email Address</label>
               <p className="field-note">Email cannot be changed</p>
             </div>
 
             <div className="form-row form-row-2">
               <div className="form-group">
-                <input
-                  type="number"
-                  name="age"
-                  value={formData.age}
-                  onChange={handleInputChange}
-                  className={`form-input ${errors.age ? 'error' : ''}`}
-                  placeholder="Your age"
-                  min="13"
-                  max="120"
-                />
+                <input type="number" name="age" value={formData.age} onChange={handleInputChange}
+                  className={`form-input ${errors.age ? 'error' : ''}`} placeholder="Your age" min="13" max="120" />
                 <label className="form-label">Age *</label>
                 {errors.age && <p className="error-message">{errors.age}</p>}
               </div>
-
               <div className="form-group">
-                <select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleInputChange}
-                  className={`form-select ${errors.gender ? 'error' : ''}`}
-                >
+                <select name="gender" value={formData.gender} onChange={handleInputChange}
+                  className={`form-select ${errors.gender ? 'error' : ''}`}>
                   <option value="">Select gender</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
@@ -707,12 +583,7 @@ const PersonalSettings = () => {
             <div className="form-section-divider">Body Measurements <span>(optional)</span></div>
             <div className="form-row form-row-3">
               <div className="form-group">
-                <select
-                  name="unitSystem"
-                  value={formData.unitSystem}
-                  onChange={handleUnitSystemChange}
-                  className="form-select"
-                >
+                <select name="unitSystem" value={formData.unitSystem} onChange={handleUnitSystemChange} className="form-select">
                   <option value="metric">Metric (kg, cm)</option>
                   <option value="imperial">Imperial (lbs, ft/in)</option>
                 </select>
@@ -721,60 +592,29 @@ const PersonalSettings = () => {
 
               <div className="form-group">
                 <Scale className="form-label-icon" />
-                <input
-                  type="number"
-                  name="weight"
-                  value={formData.weight}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="Optional"
-                  step="0.1"
-                />
-                <label className="form-label">
-                  Weight ({formData.unitSystem === 'metric' ? 'kg' : 'lbs'})
-                </label>
+                <input type="number" name="weight" value={formData.weight} onChange={handleInputChange}
+                  className="form-input" placeholder="Optional" step="0.1" />
+                <label className="form-label">Weight ({formData.unitSystem === 'metric' ? 'kg' : 'lbs'})</label>
               </div>
 
               {formData.unitSystem === 'metric' ? (
                 <div className="form-group">
                   <Ruler className="form-label-icon" />
-                  <input
-                    type="number"
-                    name="height"
-                    value={formData.height}
-                    onChange={handleInputChange}
-                    className="form-input"
-                    placeholder="Optional"
-                  />
+                  <input type="number" name="height" value={formData.height} onChange={handleInputChange}
+                    className="form-input" placeholder="Optional" />
                   <label className="form-label">Height (cm)</label>
                 </div>
               ) : (
                 <div className="form-row form-row-2 form-row-nested">
                   <div className="form-group">
                     <Ruler className="form-label-icon" />
-                    <input
-                      type="number"
-                      name="heightFeet"
-                      value={formData.heightFeet}
-                      onChange={handleInputChange}
-                      className="form-input height-feet"
-                      placeholder="ft"
-                      min="0"
-                      max="8"
-                    />
+                    <input type="number" name="heightFeet" value={formData.heightFeet} onChange={handleInputChange}
+                      className="form-input height-feet" placeholder="ft" min="0" max="8" />
                     <label className="form-label">Feet</label>
                   </div>
                   <div className="form-group">
-                    <input
-                      type="number"
-                      name="heightInches"
-                      value={formData.heightInches}
-                      onChange={handleInputChange}
-                      className="form-input height-inches"
-                      placeholder="in"
-                      min="0"
-                      max="11"
-                    />
+                    <input type="number" name="heightInches" value={formData.heightInches} onChange={handleInputChange}
+                      className="form-input height-inches" placeholder="in" min="0" max="11" />
                     <label className="form-label">Inches</label>
                   </div>
                 </div>
@@ -783,7 +623,7 @@ const PersonalSettings = () => {
           </div>
         </div>
 
-        {/* Health Information */}
+        {/* ── Health Information ── */}
         <div className="settings-card">
           <div className="card-header">
             <h2 className="card-title">Health Information</h2>
@@ -795,29 +635,17 @@ const PersonalSettings = () => {
             <div className="form-row form-row-2">
               <div className="form-group">
                 <Calendar className="form-label-icon" />
-                <input
-                  type="date"
-                  name="covidDate"
-                  value={formData.covidDate}
-                  onChange={handleInputChange}
-                  className="form-input"
-                />
+                <input type="date" name="covidDate" value={formData.covidDate} onChange={handleInputChange} className="form-input" />
                 <label className="form-label">First COVID Date</label>
               </div>
-
               <div className="form-group">
-                <select
-                  name="covidDuration"
-                  value={formData.covidDuration}
-                  onChange={handleInputChange}
-                  className="form-select"
-                >
+                <select name="covidDuration" value={formData.covidDuration} onChange={handleInputChange} className="form-select">
                   <option value="">Select duration</option>
                   <option value="less-than-1-month">Less than 1 month</option>
-                  <option value="1-3-months">1-3 months</option>
-                  <option value="3-6-months">3-6 months</option>
-                  <option value="6-12-months">6-12 months</option>
-                  <option value="1-2-years">1-2 years</option>
+                  <option value="1-3-months">1–3 months</option>
+                  <option value="3-6-months">3–6 months</option>
+                  <option value="6-12-months">6–12 months</option>
+                  <option value="1-2-years">1–2 years</option>
                   <option value="more-than-2-years">More than 2 years</option>
                 </select>
                 <label className="form-label">Long COVID Duration</label>
@@ -825,12 +653,7 @@ const PersonalSettings = () => {
             </div>
 
             <div className="form-group">
-              <select
-                name="severity"
-                value={formData.severity}
-                onChange={handleInputChange}
-                className="form-select"
-              >
+              <select name="severity" value={formData.severity} onChange={handleInputChange} className="form-select">
                 <option value="">Select severity</option>
                 <option value="mild">Mild</option>
                 <option value="moderate">Moderate</option>
@@ -840,27 +663,69 @@ const PersonalSettings = () => {
               <label className="form-label">COVID Severity</label>
             </div>
 
+            {/* ── Comorbid conditions ── */}
+            <div className="form-section-divider">
+              Related Conditions <span>(select all that apply — or none)</span>
+            </div>
+            <div className="comorbid-conditions-section">
+              {COMORBID_CONDITIONS.map(condition => {
+                const isSelected   = condition.id in formData.comorbidConditions;
+                const currentLevel = formData.comorbidConditions[condition.id];
+                return (
+                  <div key={condition.id} className={`comorbid-card ${isSelected ? 'selected' : ''}`}>
+                    <button
+                      type="button"
+                      className="comorbid-card-header"
+                      onClick={() => handleConditionToggle(condition.id)}
+                      aria-pressed={isSelected}
+                    >
+                      <span className="comorbid-icon" aria-hidden="true">{condition.icon}</span>
+                      <span className="comorbid-info">
+                        <span className="comorbid-label">{condition.label}</span>
+                        <span className="comorbid-full-name">{condition.fullName}</span>
+                      </span>
+                      <span className={`comorbid-check ${isSelected ? 'checked' : ''}`} aria-hidden="true">
+                        {isSelected ? <Check size={13} /> : '+'}
+                      </span>
+                    </button>
+
+                    {isSelected && (
+                      <div className="comorbid-body">
+                        <p className="comorbid-note">{condition.note}</p>
+                        <div className="comorbid-level-label">Severity level:</div>
+                        <div className="comorbid-level-row">
+                          {CONDITION_LEVELS.map(level => (
+                            <button
+                              key={level.value}
+                              type="button"
+                              className={`comorbid-level-btn ${currentLevel === level.value ? 'active' : ''}`}
+                              onClick={() => handleConditionLevel(condition.id, level.value)}
+                            >
+                              <span className="clb-icon">{level.icon}</span>
+                              <span className="clb-label">{level.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── Symptoms ── */}
+            <div className="form-section-divider">Symptoms</div>
             <div className="symptoms-section">
-              <label className="form-label">
-                Current Symptoms (Select all that apply)
-              </label>
+              <label className="form-label">Current Symptoms (Select all that apply)</label>
               {symptomGroups.map((group) => (
                 <div key={group.label} className="symptom-group">
                   <p className="symptom-group-label">{group.label}</p>
                   <div className="symptoms-grid" style={{ gridTemplateColumns: `repeat(${group.symptoms.length}, 1fr)` }}>
                     {group.symptoms.map((symptom) => (
-                      <label
-                        key={symptom}
-                        className={`symptom-checkbox ${formData.symptoms.includes(symptom) ? 'selected' : ''}`}
-                      >
-                        <input
-                          type="checkbox"
-                          name="symptoms"
-                          value={symptom}
-                          checked={formData.symptoms.includes(symptom)}
-                          onChange={handleInputChange}
-                          className="symptom-checkbox-input"
-                        />
+                      <label key={symptom} className={`symptom-checkbox ${formData.symptoms.includes(symptom) ? 'selected' : ''}`}>
+                        <input type="checkbox" name="symptoms" value={symptom}
+                          checked={formData.symptoms.includes(symptom)} onChange={handleInputChange}
+                          className="symptom-checkbox-input" />
                         <span className="symptom-checkbox-text">{symptom}</span>
                       </label>
                     ))}
@@ -870,126 +735,74 @@ const PersonalSettings = () => {
             </div>
 
             <div className="form-group">
-              <textarea
-                name="medicalConditions"
-                value={formData.medicalConditions}
-                onChange={handleInputChange}
-                className="form-textarea"
-                placeholder="List any pre-existing medical conditions..."
-                rows="4"
-              />
+              <textarea name="medicalConditions" value={formData.medicalConditions} onChange={handleInputChange}
+                className="form-textarea" placeholder="List any pre-existing medical conditions..." rows="4" />
               <label className="form-label">Pre-existing Medical Conditions</label>
             </div>
+
+            {errors.submit && <p className="error-message text-center">{errors.submit}</p>}
           </div>
 
           <div className="card-actions">
-            <button
-              onClick={handleSaveChanges}
-              className="btn btn-primary"
-              disabled={saving}
-            >
+            <button onClick={handleSaveChanges} className="btn btn-primary" disabled={saving}>
               {saving ? (
-                <>
-                  <div className="loading-spinner"></div>
-                  Saving...
-                </>
+                <><div className="loading-spinner"></div>Saving...</>
               ) : (
-                <>
-                  <Save className="btn-icon" />
-                  Save Changes
-                </>
+                <><Save className="btn-icon" />Save Changes</>
               )}
             </button>
           </div>
         </div>
 
-        {/* Security Settings */}
+        {/* ── Password ── */}
         <div className="settings-card">
           <div className="card-header">
-            <h2 className="card-title">Security Settings</h2>
-            <p className="card-subtitle">Manage your password and account security</p>
+            <h2 className="card-title">Security</h2>
+            <p className="card-subtitle">Manage your password</p>
           </div>
 
           {!showPasswordSection ? (
-            <button
-              onClick={() => setShowPasswordSection(true)}
-              className="btn btn-secondary"
-            >
+            <button onClick={() => setShowPasswordSection(true)} className="btn btn-secondary">
               <Lock className="btn-icon" />
               Change Password
             </button>
           ) : (
             <div className="password-section">
               <div className="form-sections">
-                <div className="form-group">
+                <div className="form-group" style={{ position: 'relative' }}>
                   <Lock className="form-label-icon" />
-                  <input
-                    type={showCurrentPassword ? 'text' : 'password'}
-                    name="currentPassword"
-                    value={passwordData.currentPassword}
-                    onChange={handlePasswordChange}
-                    className={`form-input ${errors.currentPassword ? 'error' : ''}`}
-                    placeholder="Enter current password"
-                  />
+                  <input type={showCurrentPassword ? 'text' : 'password'} name="currentPassword"
+                    value={passwordData.currentPassword} onChange={handlePasswordChange}
+                    className={`form-input ${errors.currentPassword ? 'error' : ''}`} placeholder="Current password" />
                   <label className="form-label">Current Password</label>
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    className="password-toggle"
-                  >
+                  <button type="button" onClick={() => setShowCurrentPassword(!showCurrentPassword)} className="password-toggle">
                     {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
-                  {errors.currentPassword && (
-                    <p className="error-message">{errors.currentPassword}</p>
-                  )}
+                  {errors.currentPassword && <p className="error-message">{errors.currentPassword}</p>}
                 </div>
 
-                <div className="form-row form-row-2">
-                  <div className="form-group">
-                    <Lock className="form-label-icon" />
-                    <input
-                      type={showNewPassword ? 'text' : 'password'}
-                      name="newPassword"
-                      value={passwordData.newPassword}
-                      onChange={handlePasswordChange}
-                      className={`form-input ${errors.newPassword ? 'error' : ''}`}
-                      placeholder="Enter new password"
-                    />
-                    <label className="form-label">New Password</label>
-                    <button
-                      type="button"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="password-toggle"
-                    >
-                      {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                    {errors.newPassword && (
-                      <p className="error-message">{errors.newPassword}</p>
-                    )}
-                  </div>
+                <div className="form-group" style={{ position: 'relative' }}>
+                  <Lock className="form-label-icon" />
+                  <input type={showNewPassword ? 'text' : 'password'} name="newPassword"
+                    value={passwordData.newPassword} onChange={handlePasswordChange}
+                    className={`form-input ${errors.newPassword ? 'error' : ''}`} placeholder="Enter new password" />
+                  <label className="form-label">New Password</label>
+                  <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="password-toggle">
+                    {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                  {errors.newPassword && <p className="error-message">{errors.newPassword}</p>}
+                </div>
 
-                  <div className="form-group">
-                    <Lock className="form-label-icon" />
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      name="confirmPassword"
-                      value={passwordData.confirmPassword}
-                      onChange={handlePasswordChange}
-                      className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
-                      placeholder="Confirm new password"
-                    />
-                    <label className="form-label">Confirm New Password</label>
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="password-toggle"
-                    >
-                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                    {errors.confirmPassword && (
-                      <p className="error-message">{errors.confirmPassword}</p>
-                    )}
-                  </div>
+                <div className="form-group" style={{ position: 'relative' }}>
+                  <Lock className="form-label-icon" />
+                  <input type={showConfirmPassword ? 'text' : 'password'} name="confirmPassword"
+                    value={passwordData.confirmPassword} onChange={handlePasswordChange}
+                    className={`form-input ${errors.confirmPassword ? 'error' : ''}`} placeholder="Confirm new password" />
+                  <label className="form-label">Confirm New Password</label>
+                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="password-toggle">
+                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                  {errors.confirmPassword && <p className="error-message">{errors.confirmPassword}</p>}
                 </div>
               </div>
 
@@ -997,32 +810,18 @@ const PersonalSettings = () => {
                 <button
                   onClick={() => {
                     setShowPasswordSection(false);
-                    setPasswordData({
-                      currentPassword: '',
-                      newPassword: '',
-                      confirmPassword: ''
-                    });
+                    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
                     setErrors({});
                   }}
                   className="btn btn-secondary"
                 >
                   Cancel
                 </button>
-                <button
-                  onClick={handleChangePassword}
-                  className="btn btn-primary"
-                  disabled={saving}
-                >
+                <button onClick={handleChangePassword} className="btn btn-primary" disabled={saving}>
                   {saving ? (
-                    <>
-                      <div className="loading-spinner"></div>
-                      Updating...
-                    </>
+                    <><div className="loading-spinner"></div>Updating...</>
                   ) : (
-                    <>
-                      <Check className="btn-icon" />
-                      Update Password
-                    </>
+                    <><Check className="btn-icon" />Update Password</>
                   )}
                 </button>
               </div>
@@ -1030,7 +829,7 @@ const PersonalSettings = () => {
           )}
         </div>
 
-        {/* Account Actions */}
+        {/* ── Account Actions ── */}
         <div className="settings-card danger-zone">
           <div className="card-header">
             <h2 className="card-title">Account Actions</h2>
@@ -1044,10 +843,7 @@ const PersonalSettings = () => {
             </button>
 
             {!showDeleteConfirmation ? (
-              <button
-                onClick={() => setShowDeleteConfirmation(true)}
-                className="btn btn-danger"
-              >
+              <button onClick={() => setShowDeleteConfirmation(true)} className="btn btn-danger">
                 <Trash2 className="btn-icon" />
                 Delete Account
               </button>
@@ -1058,22 +854,13 @@ const PersonalSettings = () => {
                   Delete Account
                 </h3>
                 <p className="danger-confirmation-text">
-                  This action cannot be undone. All your data, including food logs and
-                  personal information, will be permanently deleted.
+                  This action cannot be undone. All your data, including food logs and personal information, will be permanently deleted.
                 </p>
 
                 {!showDeletePasswordConfirmation ? (
                   <div className="danger-actions">
-                    <button
-                      onClick={() => setShowDeleteConfirmation(false)}
-                      className="btn btn-secondary"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => setShowDeletePasswordConfirmation(true)}
-                      className="btn btn-danger"
-                    >
+                    <button onClick={() => setShowDeleteConfirmation(false)} className="btn btn-secondary">Cancel</button>
+                    <button onClick={() => setShowDeletePasswordConfirmation(true)} className="btn btn-danger">
                       I Understand, Delete My Account
                     </button>
                   </div>
@@ -1081,57 +868,32 @@ const PersonalSettings = () => {
                   <div className="delete-password-section">
                     <div className="form-group">
                       <Lock className="form-label-icon" />
-                      <input
-                        type={showDeletePassword ? 'text' : 'password'}
-                        value={deletePassword}
+                      <input type={showDeletePassword ? 'text' : 'password'} value={deletePassword}
                         onChange={(e) => {
                           setDeletePassword(e.target.value);
-                          if (errors.deletePassword) {
-                            setErrors(prev => ({ ...prev, deletePassword: '' }));
-                          }
+                          if (errors.deletePassword) setErrors(prev => ({ ...prev, deletePassword: '' }));
                         }}
                         className={`form-input ${errors.deletePassword ? 'error' : ''}`}
-                        placeholder="Enter your password to confirm"
-                      />
+                        placeholder="Enter your password to confirm" />
                       <label className="form-label">Confirm Password</label>
-                      <button
-                        type="button"
-                        onClick={() => setShowDeletePassword(!showDeletePassword)}
-                        className="password-toggle"
-                      >
+                      <button type="button" onClick={() => setShowDeletePassword(!showDeletePassword)} className="password-toggle">
                         {showDeletePassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
-                      {errors.deletePassword && (
-                        <p className="error-message">{errors.deletePassword}</p>
-                      )}
+                      {errors.deletePassword && <p className="error-message">{errors.deletePassword}</p>}
                     </div>
 
                     <div className="danger-actions">
                       <button
-                        onClick={() => {
-                          setShowDeletePasswordConfirmation(false);
-                          setDeletePassword('');
-                          setErrors({});
-                        }}
+                        onClick={() => { setShowDeletePasswordConfirmation(false); setDeletePassword(''); setErrors({}); }}
                         className="btn btn-secondary"
                       >
                         Cancel
                       </button>
-                      <button
-                        onClick={handleDeleteAccount}
-                        className="btn btn-danger"
-                        disabled={deleting}
-                      >
+                      <button onClick={handleDeleteAccount} className="btn btn-danger" disabled={deleting}>
                         {deleting ? (
-                          <>
-                            <div className="loading-spinner"></div>
-                            Deleting...
-                          </>
+                          <><div className="loading-spinner"></div>Deleting...</>
                         ) : (
-                          <>
-                            <Trash2 className="btn-icon" />
-                            Permanently Delete Account
-                          </>
+                          <><Trash2 className="btn-icon" />Permanently Delete Account</>
                         )}
                       </button>
                     </div>
@@ -1144,44 +906,157 @@ const PersonalSettings = () => {
       </div>
 
       <style jsx>{`
-        /* Add these new styles for imperial height inputs */
-        .height-imperial-group {
-          position: relative;
+        /* ── Comorbid conditions ── */
+        .comorbid-conditions-section {
+          display: flex;
+          flex-direction: column;
+          gap: 0.625rem;
         }
 
-        .height-imperial-inputs {
+        .comorbid-card {
+          border: 2px solid #e5e7eb;
+          border-radius: 12px;
+          overflow: hidden;
+          background: #fff;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .comorbid-card.selected {
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+        }
+
+        .comorbid-card-header {
+          width: 100%;
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.75rem;
+          padding: 0.875rem 1rem;
+          background: none;
+          border: none;
+          cursor: pointer;
+          text-align: left;
+          transition: background 0.15s ease;
         }
 
-        .height-imperial-inputs .form-input {
+        .comorbid-card-header:hover { background: #f8faff; }
+        .comorbid-card.selected .comorbid-card-header { background: #eff6ff; }
+
+        .comorbid-icon { font-size: 1.25rem; flex-shrink: 0; line-height: 1; }
+
+        .comorbid-info {
           flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
           min-width: 0;
         }
 
-        .height-separator {
-          color: var(--gray-600);
-          font-size: 0.875rem;
-          font-weight: 500;
+        .comorbid-label {
+          font-size: 0.925rem;
+          font-weight: 700;
+          color: #111827;
+          line-height: 1.2;
         }
 
-        .height-feet {
-          flex: 1.2 !important;
+        .comorbid-card.selected .comorbid-label { color: #1d4ed8; }
+
+        .comorbid-full-name {
+          font-size: 0.775rem;
+          color: #6b7280;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
-        .height-inches {
-          flex: 0.8 !important;
+        .comorbid-check {
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          border: 2px solid #d1d5db;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          font-size: 0.85rem;
+          color: #9ca3af;
+          transition: all 0.15s ease;
         }
 
-        .field-note {
-          font-size: 0.75rem;
-          color: var(--gray-500);
-          margin-top: 0.25rem;
-          font-style: italic;
+        .comorbid-check.checked {
+          background: #3b82f6;
+          border-color: #3b82f6;
+          color: #fff;
         }
 
-        /* Rest of existing styles... */
+        .comorbid-body {
+          padding: 0.75rem 1rem 1rem;
+          border-top: 1px solid #dbeafe;
+          background: #f8fbff;
+        }
+
+        .comorbid-note {
+          font-size: 0.8rem;
+          color: #4b5563;
+          line-height: 1.5;
+          margin: 0 0 0.75rem 0;
+        }
+
+        .comorbid-level-label {
+          font-size: 0.7rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: #6b7280;
+          margin-bottom: 0.4rem;
+        }
+
+        .comorbid-level-row {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+
+        .comorbid-level-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          padding: 0.35rem 0.7rem;
+          border: 2px solid #e5e7eb;
+          border-radius: 8px;
+          background: #fff;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .comorbid-level-btn .clb-icon  { font-size: 0.85rem; line-height: 1; }
+        .comorbid-level-btn .clb-label { font-size: 0.8rem; font-weight: 500; color: #374151; }
+
+        .comorbid-level-btn:hover { border-color: #93c5fd; background: #eff6ff; }
+
+        .comorbid-level-btn.active {
+          border-color: #3b82f6;
+          background: #3b82f6;
+        }
+        .comorbid-level-btn.active .clb-label { color: #fff; font-weight: 600; }
+
+        /* Height inputs */
+        .height-imperial-group { position: relative; }
+        .height-imperial-inputs { display: flex; align-items: center; gap: 0.5rem; }
+        .height-imperial-inputs .form-input { flex: 1; min-width: 0; }
+        .height-separator { color: var(--gray-600); font-size: 0.875rem; font-weight: 500; }
+        .height-feet   { flex: 1.2 !important; }
+        .height-inches { flex: 0.8 !important; }
+        .field-note { font-size: 0.75rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic; }
+
+        /* Password toggle */
+        .form-group:has(.password-toggle) .form-input { padding-right: 3rem; }
+
+        @media (max-width: 480px) {
+          .comorbid-full-name { white-space: normal; }
+          .comorbid-level-row { gap: 0.375rem; }
+          .comorbid-level-btn { padding: 0.3rem 0.55rem; }
+        }
       `}</style>
     </div>
   );

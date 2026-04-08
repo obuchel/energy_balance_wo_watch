@@ -639,27 +639,7 @@ const entryData = {
     const mealTypeFactor = mealTypeFactors[mealData.mealType] || 1.0;
 
     const macroBalance = Math.min(100, (proteinFactor + carbFactor + fatFactor) * 10);
-    let efficiency = macroBalance * timeFactor * mealTypeFactor;
-
-    if (userProfile?.hasLongCovid) {
-      const severityFactors = {
-        'mild': 0.95,
-        'moderate': 0.85,
-        'severe': 0.75,
-        'very severe': 0.65
-      };
-
-      const severityFactor = severityFactors[userProfile.longCovidSeverity] || 0.85;
-      efficiency *= severityFactor;
-
-      if (mealData.longCovidBenefits && mealData.longCovidBenefits.length > 0) {
-        efficiency *= 1.1;
-      }
-
-      if (mealData.longCovidCautions && mealData.longCovidCautions.length > 0) {
-        efficiency *= 0.9;
-      }
-    }
+    const efficiency = macroBalance * timeFactor * mealTypeFactor;
 
     return Math.min(100, Math.max(0, efficiency));
   };
