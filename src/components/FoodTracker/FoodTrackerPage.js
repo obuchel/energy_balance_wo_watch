@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, getDocs, addDoc, deleteDoc, updateDoc, doc, getDoc, Timestamp, orderBy, limit } from 'firebase/firestore';
+import { collection, query, getDocs, addDoc, deleteDoc, updateDoc, doc, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase-config';
+import { useAuth } from '../../AuthContext'; // single source of auth truth
 import "../Common.css";
 import './FoodTrackerPage.css';
 
@@ -162,10 +163,17 @@ const resolveSearchTerm = (term) => {
 
 function FoodTrackerPage() {
   const navigate = useNavigate();
+  const { user, profile: authProfile, loading: authLoading, signOut } = useAuth();
 
-  // State declarations
-  //const [allFoodsCache, setAllFoodsCache] = useState([]);
-  //const [pyodideStatus] = useState('unavailable');
+  // Derive currentUser shape the rest of the file expects.
+  // Use useMemo so the object reference is stable — prevents infinite loops
+  // in useCallback/useEffect that depend on currentUser.
+  const uid = user?.uid ?? null;
+  const currentUser = useMemo(
+    () => (uid ? { id: uid, email: user.email } : null),
+    [uid, user?.email]
+  );
+
   const [searchFocused, setSearchFocused] = useState(false);
 
   // Search service state
@@ -173,18 +181,8 @@ function FoodTrackerPage() {
   const [searchServiceError, setSearchServiceError] = useState('');
   const [initProgress, setInitProgress] = useState('');
 
-  // User and authentication state
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userProfile, setUserProfile] = useState({
-    age: 30,
-    gender: 'female',
-    weight: 65,
-    height: 165,
-    activityLevel: 'moderate',
-    hasLongCovid: false,
-    longCovidSeverity: 'moderate'
-  });
-  const [authLoading, setAuthLoading] = useState(true);
+  // userProfile comes from AuthContext (already fetched once for the whole app)
+  const userProfile = authProfile;
 
   // UI state
   const [tab, setTab] = useState('Add Food');
@@ -263,21 +261,11 @@ function FoodTrackerPage() {
     };
   }, []);
 
-  // Handle logout
   const handleLogout = async () => {
-    console.log('Logout clicked - starting complete logout process');
-
     try {
-      localStorage.removeItem('userData');
-      sessionStorage.clear();
-      setCurrentUser(null);
-      setAuthLoading(false);
-      navigate('/login', { replace: true });
+      await signOut(); // signOut from useAuth() — no auth argument needed
     } catch (error) {
       console.error('Error during logout:', error);
-      localStorage.removeItem('userData');
-      sessionStorage.clear();
-      setCurrentUser(null);
       navigate('/login', { replace: true });
     }
   };
@@ -492,58 +480,6 @@ const entryData = {
     setError('');
     setSodiumOverride(null);
   };
-
-  // Fetch user profile from Firestore
-  const fetchUserProfile = useCallback(async (uid) => {
-    try {
-      const userDocRef = doc(db, 'users', uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setUserProfile(userData);
-      } else {
-        console.log('No user profile found in database');
-        setUserProfile(null);
-      }
-    } catch (err) {
-      console.error("Error fetching user profile:", err);
-      setError('Failed to load user profile');
-      setUserProfile(null);
-    }
-  }, []);
-
-  // Authentication check function
-  const checkUserAuthentication = useCallback(async () => {
-    try {
-      const storedUserData = localStorage.getItem('userData');
-
-      if (!storedUserData) {
-        navigate('/login');
-        return;
-      }
-
-      const parsedUserData = JSON.parse(storedUserData);
-      setCurrentUser(parsedUserData);
-
-      if (parsedUserData.id) {
-        await fetchUserProfile(parsedUserData.id);
-      } else {
-        console.log('No user ID found - user profile not loaded');
-        setUserProfile(null);
-      }
-    } catch (error) {
-      console.error("Error checking authentication:", error);
-      navigate('/login');
-    } finally {
-      setAuthLoading(false);
-    }
-  }, [navigate, fetchUserProfile]);
-
-  // Authentication effect
-  useEffect(() => {
-    checkUserAuthentication();
-  }, [checkUserAuthentication]);
 
   // Helper function for COVID food rating
   // Reads LC/MCAS rating purely from the food object's data properties.

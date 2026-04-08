@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db, auth } from '../../firebase-config';
+import { db } from '../../firebase-config';
 import { doc, updateDoc, getDoc, deleteDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, signOut, deleteUser } from 'firebase/auth';
+import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser } from 'firebase/auth';
+import { useAuth } from '../../AuthContext';
 import "../Common.css";
 import "./PersonalSettings.css";
 
@@ -84,6 +85,8 @@ const convertHeight = {
 
 const PersonalSettings = () => {
   const navigate = useNavigate();
+  const { user, signOut, refreshProfile } = useAuth();
+
   const [loading,  setLoading]  = useState(true);
   const [saving,   setSaving]   = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -211,62 +214,52 @@ const PersonalSettings = () => {
     });
   }, [formData]);
 
-  // Load user data
-  const loadUserData = useCallback(async () => {
+  // Load user data — uid comes from AuthContext, no localStorage needed
+  const loadUserData = useCallback(async (uid) => {
     try {
-      const storedUserData = localStorage.getItem('userData');
-      if (!storedUserData) { navigate('/login'); return; }
+      const userDocRef  = doc(db, 'users', uid);
+      const userDocSnap = await getDoc(userDocRef, { source: 'server' });
 
-      const parsedUserData = JSON.parse(storedUserData);
+      if (userDocSnap.exists()) {
+        const data = userDocSnap.data();
+        setUserData({ id: uid, ...data });
 
-      if (parsedUserData.id) {
-        const userDocRef  = doc(db, 'users', parsedUserData.id);
-        const userDocSnap = await getDoc(userDocRef, { source: 'server' });
+        const userUnitSystem = data.unitSystem || 'metric';
+        let displayWeight       = data.weight  || '';
+        let displayHeight       = data.height  || '';
+        let displayHeightFeet   = '';
+        let displayHeightInches = '';
 
-        if (userDocSnap.exists()) {
-          const data = userDocSnap.data();
-          setUserData({ id: parsedUserData.id, ...data });
-
-          const userUnitSystem = data.unitSystem || 'metric';
-
-          let displayWeight      = data.weight  || '';
-          let displayHeight      = data.height  || '';
-          let displayHeightFeet  = '';
-          let displayHeightInches= '';
-
-          if (userUnitSystem === 'imperial') {
-            if (data.weight) {
-              displayWeight = Math.round(convertWeight.kgToLbs(data.weight) * 10) / 10;
-            }
-            if (data.height) {
-              const { feet, inches } = convertHeight.cmToFeetInches(data.height);
-              displayHeightFeet   = feet;
-              displayHeightInches = inches;
-              displayHeight       = '';
-            }
+        if (userUnitSystem === 'imperial') {
+          if (data.weight) displayWeight = Math.round(convertWeight.kgToLbs(data.weight) * 10) / 10;
+          if (data.height) {
+            const { feet, inches } = convertHeight.cmToFeetInches(data.height);
+            displayHeightFeet   = feet;
+            displayHeightInches = inches;
+            displayHeight       = '';
           }
-
-          setFormData({
-            name:               data.name              || '',
-            email:              data.email             || '',
-            age:                data.age               || '',
-            gender:             data.gender            || '',
-            unitSystem:         userUnitSystem,
-            weight:             displayWeight,
-            height:             displayHeight,
-            heightFeet:         displayHeightFeet,
-            heightInches:       displayHeightInches,
-            covidDate:          data.covidDate         || '',
-            covidDuration:      data.covidDuration     || '',
-            severity:           data.severity          || '',
-            symptoms:           data.symptoms          || [],
-            comorbidConditions: data.comorbidConditions || {},  // ← load stored conditions
-            medicalConditions:  data.medicalConditions  || '',
-          });
-        } else {
-          console.error('User document not found');
-          navigate('/login');
         }
+
+        setFormData({
+          name:               data.name              || '',
+          email:              data.email             || '',
+          age:                data.age               || '',
+          gender:             data.gender            || '',
+          unitSystem:         userUnitSystem,
+          weight:             displayWeight,
+          height:             displayHeight,
+          heightFeet:         displayHeightFeet,
+          heightInches:       displayHeightInches,
+          covidDate:          data.covidDate         || '',
+          covidDuration:      data.covidDuration     || '',
+          severity:           data.severity          || '',
+          symptoms:           data.symptoms          || [],
+          comorbidConditions: data.comorbidConditions || {},
+          medicalConditions:  data.medicalConditions  || '',
+        });
+      } else {
+        console.error('User document not found');
+        navigate('/login');
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -276,21 +269,22 @@ const PersonalSettings = () => {
     }
   }, [navigate]);
 
-  useEffect(() => { loadUserData(); }, [loadUserData]);
+  // Trigger load when Firebase Auth user is available
+  useEffect(() => {
+    if (user) {
+      loadUserData(user.uid);
+    } else if (user === null) {
+      // Explicitly null (not undefined) means auth resolved with no session
+      navigate('/login', { replace: true });
+      setLoading(false);
+    }
+  }, [user, loadUserData, navigate]);
 
   const handleLogout = async () => {
     try {
-      if (auth.currentUser) await signOut(auth);
-      localStorage.removeItem('userData');
-      sessionStorage.clear();
-      setUserData(null);
-      setLoading(false);
-      navigate('/login', { replace: true });
+      await signOut(); // from AuthContext — onAuthStateChanged handles redirect
     } catch (error) {
       console.error('Error during logout:', error);
-      localStorage.removeItem('userData');
-      sessionStorage.clear();
-      setUserData(null);
       navigate('/login', { replace: true });
     }
   };
@@ -305,13 +299,11 @@ const PersonalSettings = () => {
     setErrors({});
 
     try {
-      const user = auth.currentUser;
       if (!user) throw new Error('No authenticated user found');
-
       const credential = EmailAuthProvider.credential(user.email, deletePassword);
       await reauthenticateWithCredential(user, credential);
 
-      const userId = userData.id;
+      const userId = user.uid; // use Firebase Auth uid directly
       await deleteDoc(doc(db, 'users', userId));
 
       const foodLogsQuery    = query(collection(db, 'foodLogs'), where('userId', '==', userId));
@@ -321,9 +313,7 @@ const PersonalSettings = () => {
       await batch.commit();
 
       await deleteUser(user);
-      localStorage.removeItem('userData');
-      sessionStorage.clear();
-      navigate('/login', { replace: true });
+      // onAuthStateChanged fires with null → redirects to /login automatically
 
     } catch (error) {
       console.error('Error deleting account:', error);
@@ -445,17 +435,19 @@ const PersonalSettings = () => {
         updatedAt:          new Date().toISOString(),
       };
 
-      await updateDoc(doc(db, 'users', userData.id), updatedData);
+      const uid = user?.uid;
+      if (!uid) throw new Error('No authenticated user');
 
-      // Re-read from server (bypasses cache) to confirm what was actually saved
-      const confirmedSnap = await getDoc(doc(db, 'users', userData.id), { source: 'server' });
+      await updateDoc(doc(db, 'users', uid), updatedData);
+
+      // Re-read from server to confirm what was saved
+      const confirmedSnap = await getDoc(doc(db, 'users', uid), { source: 'server' });
       const confirmedData = confirmedSnap.exists() ? confirmedSnap.data() : updatedData;
 
-      const updatedUserData = { id: userData.id, email: userData.email, ...confirmedData };
-      localStorage.setItem('userData', JSON.stringify(updatedUserData));
-      setUserData(updatedUserData);
+      setUserData({ id: uid, ...confirmedData });
+      await refreshProfile(); // update AuthContext so all pages see new profile
 
-      // Sync formData to exactly what Firestore has (so UI is always in sync)
+      // Sync formData to exactly what Firestore has
       setFormData(prev => ({
         ...prev,
         comorbidConditions: confirmedData.comorbidConditions ?? {},
@@ -487,7 +479,7 @@ const PersonalSettings = () => {
     setErrors({});
 
     try {
-      const user       = auth.currentUser;
+      if (!user) throw new Error('No authenticated user found');
       const credential = EmailAuthProvider.credential(user.email, passwordData.currentPassword);
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, passwordData.newPassword);

@@ -3,11 +3,14 @@ import { ArrowLeft, TrendingUp, TrendingDown, Minus, Calendar, BarChart3, Activi
 import { useNavigate } from 'react-router-dom';
 import { db } from '../../firebase-config';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { useAuth } from '../../AuthContext';
 import "../Common.css";
 import './SymptomPatterns.css';
 
 const SymptomPatterns = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const uid = user?.uid ?? null;
   const [symptomData, setSymptomData] = useState({});
   const [customSymptoms, setCustomSymptoms] = useState({});
   const [loading, setLoading] = useState(true);
@@ -69,23 +72,20 @@ const SymptomPatterns = () => {
     return `${year}-${month}-${day}`;
   }, []);
 
-  // Load all symptom data from Firestore
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-      const userId = userData.id;
-      if (!userId) throw new Error('No user ID found');
+      if (!uid) throw new Error('No user ID found');
 
       // Load custom symptoms
-      const customSymptomsDocRef = doc(db, 'users', userId, 'settings', 'customSymptoms');
+      const customSymptomsDocRef = doc(db, 'users', uid, 'settings', 'customSymptoms');
       const customSymptomsDoc = await getDoc(customSymptomsDocRef);
       if (customSymptomsDoc.exists()) {
         setCustomSymptoms(customSymptomsDoc.data().symptoms || {});
       }
 
       // Load all symptom data documents
-      const symptomCollectionRef = collection(db, 'users', userId, 'symptomData');
+      const symptomCollectionRef = collection(db, 'users', uid, 'symptomData');
       const snapshot = await getDocs(symptomCollectionRef);
 
       const loadedData = {};
@@ -97,24 +97,14 @@ const SymptomPatterns = () => {
     } catch (err) {
       console.error('Error loading data:', err);
       setError(err.message);
-
-      // Fallback to localStorage
-      try {
-        const existingData = JSON.parse(localStorage.getItem('symptomTrackerData') || '{}');
-        const savedCustom = JSON.parse(localStorage.getItem('customSymptoms') || '{}');
-        setSymptomData(existingData);
-        setCustomSymptoms(savedCustom);
-      } catch (e) {
-        console.error('Fallback failed:', e);
-      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [uid]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (uid) loadData();
+  }, [loadData, uid]);
 
   // Get severity for a symptom on a given date
   const getSymptomSeverity = useCallback((date, symptomId) => {

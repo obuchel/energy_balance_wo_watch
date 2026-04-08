@@ -1,164 +1,119 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import RegistrationPage from './components/Register/RegistrationPage';
-import Dashboard from './components/Dashboard/Dashboard';
-import SignInPage from './components/SignIn/SignInPage';
-import ForgotPasswordPage from './components/SignIn/ForgotPasswordPage';
-import PersonalSettings from './components/Settings/PersonalSettings';
-import SymptomTracker from './components/SymptomTracker/SymptomTracker';
-import SymptomPatterns from './components/SymptomPatterns/SymptomPatterns';
+import { useAuth, AuthProvider } from './AuthContext';
+
+import RegistrationPage    from './components/Register/RegistrationPage';
+import Dashboard           from './components/Dashboard/Dashboard';
+import SignInPage          from './components/SignIn/SignInPage';
+import ForgotPasswordPage  from './components/SignIn/ForgotPasswordPage';
+import PersonalSettings    from './components/Settings/PersonalSettings';
+import SymptomTracker      from './components/SymptomTracker/SymptomTracker';
+import SymptomPatterns     from './components/SymptomPatterns/SymptomPatterns';
 import './App.css';
 
-// Lazy load Food Tracker component
 const FoodTrackerPage = lazy(() => import('./components/FoodTracker/FoodTrackerPage'));
 
-function App() {
-  // Check if user is authenticated
-  const isAuthenticated = () => {
-    const userData = localStorage.getItem('userData');
-    console.log('Checking authentication, userData exists:', !!userData);
-    if (!userData) return false;
-    
-    try {
-      const user = JSON.parse(userData);
-      console.log('Parsed user ID:', user.id);
-      return user && user.id;
-    } catch (error) {
-      console.error('Error parsing user data:', error);
-      return false;
-    }
-  };
+// ── Shared loading spinner ────────────────────────────────────────────────────
+const AppSpinner = () => (
+  <div style={{
+    minHeight: '100vh', display: 'flex',
+    alignItems: 'center', justifyContent: 'center',
+    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+  }}>
+    <div style={{ textAlign: 'center', color: 'white' }}>
+      <div style={{
+        width: 40, height: 40,
+        border: '3px solid rgba(255,255,255,0.3)',
+        borderTop: '3px solid white',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite',
+        margin: '0 auto 16px',
+      }} />
+      <p style={{ margin: 0, fontWeight: 500 }}>Loading…</p>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  </div>
+);
 
-  // Protected Route component
-  const ProtectedRoute = ({ children }) => {
-    const isAuth = isAuthenticated();
-    console.log('ProtectedRoute - isAuthenticated:', isAuth);
-    return isAuth ? children : <Navigate to="/login" replace />;
-  };
+// ── Route guards ──────────────────────────────────────────────────────────────
 
-  // Public Route component (redirect to dashboard if already authenticated)
-  const PublicRoute = ({ children }) => {
-    const isAuth = isAuthenticated();
-    console.log('PublicRoute - isAuthenticated:', isAuth);
-    return !isAuth ? children : <Navigate to="/dashboard" replace />;
-  };
+/** Requires a valid Firebase session. Redirects to /login if none. */
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <AppSpinner />;
+  if (!user)   return <Navigate to="/login" replace />;
+  return children;
+};
 
-  console.log('App rendering, checking routes...');
+/** Redirects already-authenticated users away from login/register. */
+const PublicRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <AppSpinner />;
+  if (user)    return <Navigate to="/dashboard" replace />;
+  return children;
+};
 
+/** Root path — send users to dashboard or login based on session. */
+const RootRedirect = () => {
+  const { user, loading } = useAuth();
+  if (loading) return <AppSpinner />;
+  return <Navigate to={user ? '/dashboard' : '/login'} replace />;
+};
+
+// ── Routes ────────────────────────────────────────────────────────────────────
+function AppRoutes() {
   return (
-    <Router basename="/energy_balance_wo_watch">
-      <div className="App">
-        <Routes>
-          {/* Public routes */}
-          <Route 
-            path="/login" 
-            element={
-              <PublicRoute>
-                <SignInPage />
-              </PublicRoute>
-            } 
-          />
-          
-          <Route 
-            path="/forgot-password" 
-            element={
-              <PublicRoute>
-                <ForgotPasswordPage />
-              </PublicRoute>
-            } 
-          />
-          
-          <Route 
-            path="/login/forgot-password" 
-            element={
-              <PublicRoute>
-                <ForgotPasswordPage />
-              </PublicRoute>
-            } 
-          />
-     
-          <Route 
-            path="/register" 
-            element={
-              <PublicRoute>
-                <RegistrationPage />
-              </PublicRoute>
-            } 
-          />
-          
-          {/* Protected routes */}
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } 
-          />
-          
-          <Route 
-            path="/symptom-tracker" 
-            element={
-              <ProtectedRoute>
-                <SymptomTracker />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/symptom-patterns" 
-            element={
-              <ProtectedRoute>
-                <SymptomPatterns />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/food-tracker" 
-            element={
-              <ProtectedRoute>
-                <Suspense fallback={<div>Loading...</div>}>
-                  <FoodTrackerPage />
-                </Suspense>
-              </ProtectedRoute>
-            } 
-          />
-          
-          <Route 
-            path="/personal-settings" 
-            element={
-              <ProtectedRoute>
-                <PersonalSettings />
-              </ProtectedRoute>
-            } 
-          />
-          
-          {/* Default route - redirect based on authentication status */}
-          <Route 
-            path="/" 
-            element={
-              isAuthenticated() ? 
-                <Navigate to="/dashboard" replace /> : 
-                <Navigate to="/login" replace />
-            } 
-          />
-          
-          {/* Catch all other routes */}
-          <Route 
-            path="*" 
-            element={
-              <div className="not-found">
-                <h2>Page Not Found</h2>
-                <p>The page you're looking for doesn't exist.</p>
-                <p>Current path: {window.location.pathname}</p>
-                <button onClick={() => window.location.href = '/'}>
-                  Go Home
-                </button>
-              </div>
-            } 
-          />
-        </Routes>
-      </div>
-    </Router>
+    <Routes>
+      {/* Public */}
+      <Route path="/login"                element={<PublicRoute><SignInPage /></PublicRoute>} />
+      <Route path="/forgot-password"      element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+      <Route path="/login/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+      <Route path="/register"             element={<PublicRoute><RegistrationPage /></PublicRoute>} />
+
+      {/* Protected */}
+      <Route path="/dashboard"         element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/symptom-tracker"   element={<ProtectedRoute><SymptomTracker /></ProtectedRoute>} />
+      <Route path="/symptom-patterns"  element={<ProtectedRoute><SymptomPatterns /></ProtectedRoute>} />
+      <Route path="/personal-settings" element={<ProtectedRoute><PersonalSettings /></ProtectedRoute>} />
+      <Route
+        path="/food-tracker"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<AppSpinner />}>
+              <FoodTrackerPage />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Default */}
+      <Route path="/" element={<RootRedirect />} />
+
+      {/* 404 */}
+      <Route
+        path="*"
+        element={
+          <div className="not-found">
+            <h2>Page Not Found</h2>
+            <p>The page you're looking for doesn't exist.</p>
+            <button onClick={() => window.location.href = '/'}>Go Home</button>
+          </div>
+        }
+      />
+    </Routes>
+  );
+}
+
+// ── App root — AuthProvider wraps everything ──────────────────────────────────
+function App() {
+  return (
+    <AuthProvider>
+      <Router basename="/energy_balance_wo_watch">
+        <div className="App">
+          <AppRoutes />
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 

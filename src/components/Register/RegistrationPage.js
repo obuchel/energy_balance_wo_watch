@@ -319,7 +319,7 @@ function RegisterPage() {
       };
 
       await setDoc(doc(db, 'users', userCredential.user.uid), userData);
-      localStorage.setItem('userData', JSON.stringify({ id: userCredential.user.uid, ...userData }));
+      // onAuthStateChanged in each page handles the session automatically — no localStorage needed
       navigate('/');
 
     } catch (error) {

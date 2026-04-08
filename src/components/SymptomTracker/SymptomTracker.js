@@ -3,8 +3,9 @@ import { AlertCircle, Plus, X, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../../firebase-config';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { useAuth } from '../../AuthContext';
 import "../Common.css";
-import './SymptomTracker.css'; // Import the CSS file
+import './SymptomTracker.css';
 
 // ── SymptomInstance ────────────────────────────────────────────────────────
 // Defined OUTSIDE LongCovidTracker so its identity is stable across re-renders.
@@ -287,6 +288,8 @@ const SymptomCard = React.memo(({
 // ── LongCovidTracker ───────────────────────────────────────────────────────
 const LongCovidTracker = () => {
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const uid = user?.uid ?? null;
   const [currentDate, setCurrentDate] = useState(() => {
     // Use local date formatting to avoid timezone issues
     const now = new Date();
@@ -432,36 +435,29 @@ const LongCovidTracker = () => {
       isSavingRef.current = true;
       setSyncStatus('pending');
       
-      // Get user ID from localStorage
-      const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-      const userId = userData.id;
-      
-      if (!userId) {
-        throw new Error('No user ID found');
-      }
+      if (!uid) throw new Error('No user ID found');
 
-      // Save symptom data to Firestore
-      const symptomDocRef = doc(db, 'users', userId, 'symptomData', date);
+      const symptomDocRef = doc(db, 'users', uid, 'symptomData', date);
       await setDoc(symptomDocRef, {
         ...data,
         lastUpdated: new Date().toISOString(),
-        userId: userId
+        userId: uid
       });
       
       // Save custom symptoms to Firestore
-      const customSymptomsDocRef = doc(db, 'users', userId, 'settings', 'customSymptoms');
+      const customSymptomsDocRef = doc(db, 'users', uid, 'settings', 'customSymptoms');
       await setDoc(customSymptomsDocRef, {
         symptoms: customSymptoms,
         lastUpdated: new Date().toISOString(),
-        userId: userId
+        userId: uid
       });
 
       // Save ongoing symptoms to Firestore
-      const ongoingSymptomsDocRef = doc(db, 'users', userId, 'settings', 'ongoingSymptoms');
+      const ongoingSymptomsDocRef = doc(db, 'users', uid, 'settings', 'ongoingSymptoms');
       await setDoc(ongoingSymptomsDocRef, {
         symptoms: ongoingSymptoms,
         lastUpdated: new Date().toISOString(),
-        userId: userId
+        userId: uid
       });
       
       setLastSyncDate(new Date().toISOString());
@@ -476,20 +472,13 @@ const LongCovidTracker = () => {
     }
   }, [customSymptoms, ongoingSymptoms]);
 
-  // Load data from Firestore
   const loadFromFirestore = useCallback(async () => {
-    setLoading(true); // Start loading
+    setLoading(true);
     try {
-      // Get user ID from localStorage
-      const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-      const userId = userData.id;
-      
-      if (!userId) {
-        throw new Error('No user ID found');
-      }
+      if (!uid) throw new Error('No user ID found');
 
       // Load custom symptoms from Firestore
-      const customSymptomsDocRef = doc(db, 'users', userId, 'settings', 'customSymptoms');
+      const customSymptomsDocRef = doc(db, 'users', uid, 'settings', 'customSymptoms');
       const customSymptomsDoc = await getDoc(customSymptomsDocRef);
       let loadedCustomSymptoms = {};
       if (customSymptomsDoc.exists()) {
@@ -497,7 +486,7 @@ const LongCovidTracker = () => {
       }
 
       // Load ongoing symptoms from Firestore
-      const ongoingSymptomsDocRef = doc(db, 'users', userId, 'settings', 'ongoingSymptoms');
+      const ongoingSymptomsDocRef = doc(db, 'users', uid, 'settings', 'ongoingSymptoms');
       const ongoingSymptomsDoc = await getDoc(ongoingSymptomsDocRef);
       let loadedOngoingSymptoms = {};
       if (ongoingSymptomsDoc.exists()) {
@@ -505,7 +494,7 @@ const LongCovidTracker = () => {
       }
 
       // Load symptom data for current date from Firestore
-      const symptomDocRef = doc(db, 'users', userId, 'symptomData', currentDate);
+      const symptomDocRef = doc(db, 'users', uid, 'symptomData', currentDate);
       const symptomDoc = await getDoc(symptomDocRef);
       let loadedSymptomData = {};
       if (symptomDoc.exists()) {
@@ -519,7 +508,7 @@ const LongCovidTracker = () => {
         date.setDate(date.getDate() - i);
         const dateStr = getLocalDateString(date);
         
-        const docRef = doc(db, 'users', userId, 'symptomData', dateStr);
+        const docRef = doc(db, 'users', uid, 'symptomData', dateStr);
         promises.push(
           getDoc(docRef).then(doc => {
             if (doc.exists()) {
@@ -568,33 +557,27 @@ const LongCovidTracker = () => {
     } finally {
       setLoading(false); // End loading
     }
-  }, [currentDate, getLocalDateString]);
+  }, [uid, currentDate, getLocalDateString]);
 
   // Load symptom data for a specific date
   const loadSymptomDataForDate = useCallback(async (date) => {
+    if (!uid) return;
+
     try {
-      const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-      const userId = userData.id;
-      
-      if (!userId) return;
-
-      // Check if we already have this date's data
-      if (symptomData[date]) return;
-
-      // Load from Firestore
-      const symptomDocRef = doc(db, 'users', userId, 'symptomData', date);
+      const symptomDocRef = doc(db, 'users', uid, 'symptomData', date);
       const symptomDoc = await getDoc(symptomDocRef);
       
       if (symptomDoc.exists()) {
-        setSymptomData(prev => ({
-          ...prev,
-          [date]: symptomDoc.data()
-        }));
+        setSymptomData(prev => {
+          // Only update if we don't already have this date's data
+          if (prev[date]) return prev;
+          return { ...prev, [date]: symptomDoc.data() };
+        });
       }
     } catch (error) {
       console.error(`Error loading data for ${date}:`, error);
     }
-  }, [symptomData]);
+  }, [uid]); // symptomData removed from deps — use functional setState to check instead
 
   // Load data when date changes
   useEffect(() => {
@@ -616,15 +599,12 @@ const LongCovidTracker = () => {
 
   // Initialize tracker
   useEffect(() => {
-    loadFromFirestore();
-  }, [loadFromFirestore]);
+    if (uid) loadFromFirestore();
+  }, [loadFromFirestore, uid]);
 
   // Auto-save effect
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-    const userId = userData.id;
-    
-    if (userId && symptomData[currentDate] && !isSavingRef.current) {
+    if (uid && symptomData[currentDate] && !isSavingRef.current) {
       triggerSave(currentDate, symptomData[currentDate]);
     }
     
@@ -633,7 +613,7 @@ const LongCovidTracker = () => {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [symptomData, currentDate, triggerSave]);
+  }, [symptomData, currentDate, triggerSave, uid]);
 
   // Stable data access functions
   const getCurrentEntry = useCallback(() => {
@@ -789,33 +769,13 @@ const LongCovidTracker = () => {
 
   // Navigation functions
   const handleLogout = useCallback(async () => {
-    console.log('Logout clicked - starting complete logout process');
-    
     try {
-      // Clear only user authentication data from localStorage
-      // Symptom data stays in Firestore
-      console.log('Clearing localStorage userData');
-      localStorage.removeItem('userData');
-      
-      // Clear sessionStorage
-      sessionStorage.clear();
-      console.log('Cleared sessionStorage');
-      
-      console.log('Complete logout finished, navigating to login...');
-      
-      // Use React Router navigation instead of window.location
-      navigate('/login', { replace: true });
-      
+      await signOut();
     } catch (error) {
       console.error('Error during logout:', error);
-      
-      // Even if something fails, still clear local data and redirect
-      localStorage.removeItem('userData');
-      sessionStorage.clear();
-      
       navigate('/login', { replace: true });
     }
-  }, [navigate]);
+  }, [signOut, navigate]);
 
   const handleBackToDashboard = useCallback(() => {
     navigate('/dashboard');
@@ -949,11 +909,7 @@ const LongCovidTracker = () => {
     );
   }
 
-  // Error state for missing user ID
-  const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-  const userId = userData.id;
-  
-  if (error && !userId) { // Only show this specific error if there's an error and no user ID
+  if (error && !uid) {
     return (
       <div className="error-container">
         <div className="error-content">

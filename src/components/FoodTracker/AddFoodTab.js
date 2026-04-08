@@ -227,47 +227,42 @@ const LongCovidFoodInfo = ({ foodName, mealData }) => {
       }
     };
 
-    // Condition compatibility config
-    const CONDITIONS = [
-      { key: 'long_covid', label: 'Long COVID' },
-      { key: 'me_cfs',     label: 'ME/CFS'     },
-      { key: 'mcas',       label: 'MCAS'        },
-      { key: 'pots',       label: 'POTS'        },
-    ];
-
-    const conditionIcon = (val) => {
-      if (val === 'ok')      return '✓';
-      if (val === 'caution') return '⚠';
-      if (val === 'avoid')   return '✗';
-      return '?';
-    };
-
-    const hasConditionData = CONDITIONS.some(({ key }) => mealData[key]);
-
     return (
       <div className="long-covid-food-info">
         <h4>{foodName}</h4>
 
         {/* Condition Compatibility Strip */}
-        {hasConditionData && (
-          <div className="condition-compatibility">
-            <div className="condition-badges">
-              {CONDITIONS.map(({ key, label }) => {
-                const val = mealData[key];
-                if (!val) return null;
-                return (
-                  <span key={key} className={`condition-badge condition-${val}`}>
-                    <span className="condition-icon">{conditionIcon(val)}</span>
-                    <span className="condition-label">{label}</span>
-                  </span>
-                );
-              })}
+        {(() => {
+          const CONDITIONS = [
+            { key: 'long_covid', label: 'Long COVID' },
+            { key: 'me_cfs',     label: 'ME/CFS'     },
+            { key: 'mcas',       label: 'MCAS'        },
+            { key: 'pots',       label: 'POTS'        },
+          ];
+          const conditionIcon = (val) =>
+            val === 'ok' ? '✓' : val === 'caution' ? '⚠' : val === 'avoid' ? '✗' : '?';
+          const hasAny = CONDITIONS.some(({ key }) => mealData[key]);
+          if (!hasAny) return null;
+          return (
+            <div className="condition-compatibility">
+              <div className="condition-badges">
+                {CONDITIONS.map(({ key, label }) => {
+                  const val = mealData[key];
+                  if (!val) return null;
+                  return (
+                    <span key={key} className={`condition-badge condition-${val}`}>
+                      <span className="condition-icon">{conditionIcon(val)}</span>
+                      <span className="condition-label">{label}</span>
+                    </span>
+                  );
+                })}
+              </div>
+              {mealData.notes && (
+                <p className="condition-notes">{mealData.notes}</p>
+              )}
             </div>
-            {mealData.notes && (
-              <p className="condition-notes">{mealData.notes}</p>
-            )}
-          </div>
-        )}
+          );
+        })()}
 
         {/* Properties Tags */}
         {Object.keys(properties).length > 0 && (
@@ -280,9 +275,6 @@ const LongCovidFoodInfo = ({ foodName, mealData }) => {
               )}
               {properties.histamine === 'low' && (
                 <span className="property-tag histamine-low">✓ Low Histamine</span>
-              )}
-              {properties.safeForMCAS && (
-                <span className="property-tag mcas-safe">✓ MCAS Safe</span>
               )}
               {properties.dairyFree && (
                 <span className="property-tag dairy-free">🌱 Dairy Free</span>
